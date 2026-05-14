@@ -1,6 +1,7 @@
 package com.example.fashionstore_ai.tools;
 
 import com.example.fashionstore_ai.enums.AgentType;
+import com.example.fashionstore_ai.tools.agent.RecommendationAgent;
 import com.example.fashionstore_ai.tools.agent.ShoppingAssistant;
 import com.example.fashionstore_ai.tools.agent.SizingAgent;
 import com.example.fashionstore_ai.tools.agent.SupportAgent;
@@ -21,6 +22,7 @@ public class OrchestratorAgent {
     private final ShoppingAssistant shoppingAssistant;
     private final SizingAgent sizingAgent;
     private final SupportAgent supportAgent;
+    private final RecommendationAgent recommendationAgent;
 
     // ── Ключові слова для маршрутизації ───────────────────────────
 
@@ -44,26 +46,35 @@ public class OrchestratorAgent {
             "светр", "пальто", "топ", "штани", "блузка"
     );
 
+    private static final Set<String> RECOMMENDATION_KEYWORDS = Set.of(
+            "порадь", "порекомендуй", "що порадиш", "рекомендації", "підбери",
+            "що мені підійде", "схоже", "альтернатива", "з чим носити",
+            "доповнення", "хіти", "популярне", "новинки", "нова колекція",
+            "що нового", "переглянуті", "що я дивився", "персональне"
+    );
+
+
     // ── Маршрутизація ─────────────────────────────────────────────
 
     public AgentType route(String userMessage) {
         String lower = userMessage.toLowerCase();
 
-        int sizingScore   = scoreKeywords(lower, SIZING_KEYWORDS);
-        int supportScore  = scoreKeywords(lower, SUPPORT_KEYWORDS);
-        int shoppingScore = scoreKeywords(lower, SHOPPING_KEYWORDS);
+        int sizingScore          = scoreKeywords(lower, SIZING_KEYWORDS);
+        int supportScore         = scoreKeywords(lower, SUPPORT_KEYWORDS);
+        int shoppingScore        = scoreKeywords(lower, SHOPPING_KEYWORDS);
+        int recommendationScore  = scoreKeywords(lower, RECOMMENDATION_KEYWORDS);
 
-        log.info("OrchestratorAgent.route: sizing={} support={} shopping={} message='{}'",
-                sizingScore, supportScore, shoppingScore, userMessage);
+        log.info("OrchestratorAgent.route: sizing={} support={} shopping={} recommendation={} message='{}'",
+                sizingScore, supportScore, shoppingScore, recommendationScore, userMessage);
 
-        // вибираємо агента з найвищим score
-        // при рівності — ShoppingAssistant як дефолт
-        if (sizingScore > shoppingScore && sizingScore > supportScore) {
-            return AgentType.SIZING_AGENT;
-        }
-        if (supportScore > shoppingScore && supportScore > sizingScore) {
-            return AgentType.SUPPORT_AGENT;
-        }
+        int maxScore = Math.max(Math.max(sizingScore, supportScore),
+                Math.max(shoppingScore, recommendationScore));
+
+        if (maxScore == 0) return AgentType.SHOPPING_ASSISTANT;
+
+        if (recommendationScore == maxScore) return AgentType.RECOMMENDATION_AGENT;
+        if (sizingScore         == maxScore) return AgentType.SIZING_AGENT;
+        if (supportScore        == maxScore) return AgentType.SUPPORT_AGENT;
         return AgentType.SHOPPING_ASSISTANT;
     }
 
@@ -77,9 +88,10 @@ public class OrchestratorAgent {
                 agentType, sessionId);
 
         return switch (agentType) {
-            case SIZING_AGENT  -> sizingAgent.chatStream(sessionId, userMessage, history);
-            case SUPPORT_AGENT -> supportAgent.chatStream(sessionId, userMessage, history);
-            default            -> shoppingAssistant.chatStream(sessionId, userMessage, history);
+            case SIZING_AGENT          -> sizingAgent.chatStream(sessionId, userMessage, history);
+            case SUPPORT_AGENT         -> supportAgent.chatStream(sessionId, userMessage, history);
+            case RECOMMENDATION_AGENT  -> recommendationAgent.chatStream(sessionId, userMessage, history);
+            default                    -> shoppingAssistant.chatStream(sessionId, userMessage, history);
         };
     }
 
@@ -91,9 +103,10 @@ public class OrchestratorAgent {
                 agentType, sessionId);
 
         return switch (agentType) {
-            case SIZING_AGENT  -> sizingAgent.chat(sessionId, userMessage, history);
-            case SUPPORT_AGENT -> supportAgent.chat(sessionId, userMessage, history);
-            default            -> shoppingAssistant.chat(sessionId, userMessage, history);
+            case SIZING_AGENT         -> sizingAgent.chat(sessionId, userMessage, history);
+            case SUPPORT_AGENT        -> supportAgent.chat(sessionId, userMessage, history);
+            case RECOMMENDATION_AGENT -> recommendationAgent.chat(sessionId, userMessage, history);
+            default                   -> shoppingAssistant.chat(sessionId, userMessage, history);
         };
     }
 
