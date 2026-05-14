@@ -3,7 +3,6 @@ package com.example.fashionstore_ai.model;
 import com.example.fashionstore_ai.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;

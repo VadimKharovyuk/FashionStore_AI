@@ -3,7 +3,6 @@ package com.example.fashionstore_ai.model;
 import com.example.fashionstore_ai.enums.Size;
 import jakarta.persistence.*;
 import lombok.*;
-
 @Entity
 @Table(name = "product_size")
 @Getter
