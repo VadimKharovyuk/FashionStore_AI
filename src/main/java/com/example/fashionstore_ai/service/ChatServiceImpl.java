@@ -9,7 +9,9 @@ import com.example.fashionstore_ai.model.ChatMessage;
 import com.example.fashionstore_ai.model.ChatSession;
 import com.example.fashionstore_ai.repository.ChatMessageRepository;
 import com.example.fashionstore_ai.repository.ChatSessionRepository;
-import com.example.fashionstore_ai.tools.ShoppingAssistant;
+import com.example.fashionstore_ai.service.ChatService;
+import com.example.fashionstore_ai.service.ContextService;
+import com.example.fashionstore_ai.tools.OrchestratorAgent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.Message;
@@ -28,7 +30,7 @@ public class ChatServiceImpl implements ChatService {
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ContextService contextService;
-    private final ShoppingAssistant shoppingAssistant;
+    private final OrchestratorAgent orchestratorAgent;
     private final ChatMapper chatMapper;
 
     // ── Streaming ─────────────────────────────────────────────────
@@ -48,7 +50,7 @@ public class ChatServiceImpl implements ChatService {
 
             return Flux.just(StreamChunk.session(sessionId))
                     .concatWith(
-                            shoppingAssistant.chatStream(sessionId, userMessage, history)
+                            orchestratorAgent.chatStream(sessionId, userMessage, history)
                                     .map(token -> {
                                         fullResponse.append(token);
                                         return StreamChunk.token(token);
@@ -56,9 +58,10 @@ public class ChatServiceImpl implements ChatService {
                     )
                     .concatWith(Flux.defer(() -> {
                         try {
+                            AgentType usedAgent = orchestratorAgent.route(userMessage);
                             ChatMessage saved = contextService.saveAssistantMessage(
                                     session, fullResponse.toString(),
-                                    messageIndex + 1, AgentType.SHOPPING_ASSISTANT);
+                                    messageIndex + 1, usedAgent);
                             contextService.summarizeIfNeeded(session);
                             return Flux.just(StreamChunk.message(saved.getId()));
                         } catch (Exception e) {
@@ -87,7 +90,7 @@ public class ChatServiceImpl implements ChatService {
         contextService.saveUserMessage(session, userMessage, messageIndex);
         List<Message> history = contextService.buildHistory(session);
 
-        String agentResponse = shoppingAssistant.chat(sessionId, userMessage, history);
+        String agentResponse = orchestratorAgent.chat(sessionId, userMessage, history);
 
         ChatMessage assistantMsg = contextService.saveAssistantMessage(
                 session, agentResponse, messageIndex + 1, AgentType.SHOPPING_ASSISTANT);
