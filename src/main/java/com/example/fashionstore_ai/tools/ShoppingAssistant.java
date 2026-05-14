@@ -1,12 +1,13 @@
 package com.example.fashionstore_ai.tools;
 
+import com.example.fashionstore_ai.tools.CartTool;
+import com.example.fashionstore_ai.tools.ProductSearchTool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 
@@ -43,6 +44,19 @@ public class ShoppingAssistant {
             5. Якщо запитання не стосується пошуку товарів або кошика —
                поясни що передаєш питання відповідному спеціалісту
             """;
+
+    public Flux<String> chatStream(String sessionId, String userMessage, List<Message> history) {
+        log.info("ShoppingAssistant.chatStream: sessionId={}", sessionId);
+
+        return chatClient.prompt()
+                .system(SYSTEM_PROMPT)
+                .messages(history)
+                .user(userMessage)
+                .tools(productSearchTool, cartTool)
+                .stream()
+                .content()
+                .doOnError(e -> log.error("ShoppingAssistant stream error: sessionId={}", sessionId, e));
+    }
 
     public String chat(String sessionId, String userMessage, List<Message> history) {
         log.info("ShoppingAssistant.chat: sessionId={} message='{}'",
