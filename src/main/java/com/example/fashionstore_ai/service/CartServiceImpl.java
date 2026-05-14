@@ -1,4 +1,5 @@
 package com.example.fashionstore_ai.service;
+
 import com.example.fashionstore_ai.dto.cart.CartResponse;
 import com.example.fashionstore_ai.enums.Size;
 import com.example.fashionstore_ai.mapper.CartMapper;
@@ -31,7 +32,7 @@ public class CartServiceImpl implements CartService {
     // ── getCart ───────────────────────────────────────────────────
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public CartResponse getCart(String sessionId) {
         Cart cart = getOrCreateCart(sessionId);
         return cartMapper.toResponse(cart);

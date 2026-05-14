@@ -48,13 +48,29 @@ public class ShoppingAssistant {
     public Flux<String> chatStream(String sessionId, String userMessage, List<Message> history) {
         log.info("ShoppingAssistant.chatStream: sessionId={}", sessionId);
 
+        String systemWithSession = SYSTEM_PROMPT +
+                "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
+                "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах. Не вигадуй інший.";
+
+        StringBuilder tokenBuffer = new StringBuilder();
+
         return chatClient.prompt()
-                .system(SYSTEM_PROMPT)
+                .system(systemWithSession)
                 .messages(history)
                 .user(userMessage)
                 .tools(productSearchTool, cartTool)
                 .stream()
                 .content()
+                .flatMap(token -> {
+                    tokenBuffer.append(token);
+                    String current = tokenBuffer.toString();
+                    String normalized = current
+                            .replaceAll("([а-яА-ЯіІїЇєЄa-zA-Z0-9])([А-ЯІЇЄA-Z*#|])", "$1 $2")
+                            .replaceAll("([*|])([а-яА-ЯіІa-zA-Z0-9])", "$1 $2")
+                            .replaceAll("([а-яА-ЯіІa-zA-Z0-9])([*|])", "$1 $2");
+                    tokenBuffer.setLength(0);
+                    return Flux.just(normalized);
+                })
                 .doOnError(e -> log.error("ShoppingAssistant stream error: sessionId={}", sessionId, e));
     }
 
