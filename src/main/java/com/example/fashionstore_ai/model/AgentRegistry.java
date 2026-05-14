@@ -3,17 +3,13 @@ package com.example.fashionstore_ai.model;
 import com.example.fashionstore_ai.enums.AgentType;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "agent_registry")
-@Getter
-@Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter @Setter @Builder
+@NoArgsConstructor @AllArgsConstructor
 public class AgentRegistry {
 
     @Id
@@ -24,10 +20,9 @@ public class AgentRegistry {
     @Column(name = "agent_type", nullable = false)
     private AgentType agentType;
 
-
-
-    @JdbcTypeCode(SqlTypes.VECTOR)
-    @Column(name = "embedding", columnDefinition = "vector(1024)")
+    // embedding керується тільки через нативний SQL в AgentRegistryInitializer
+    // JPA повністю ігнорує цю колонку
+    @Transient
     private float[] embedding;
 
     @Column(name = "display_name", length = 200)

@@ -18,11 +18,25 @@ public interface AgentRegistryRepository extends JpaRepository<AgentRegistry, Lo
 
     List<AgentRegistry> findByIsActiveTrueOrderByPriorityDesc();
 
+//    // Agent RAG: семантичний пошук через pgvector
+//    // повертає топ-N агентів за косинусною схожістю до query embedding
+//    @Query(value = """
+//            SELECT * FROM agent_registry
+//            WHERE is_active = true
+//            ORDER BY embedding <=> CAST(:embedding AS vector)
+//            LIMIT :limit
+//            """, nativeQuery = true)
+//    List<AgentRegistry> findTopByEmbeddingSimilarity(
+//            @Param("embedding") String embedding,
+//            @Param("limit")     int limit
+//    );
+
+
     // Agent RAG: семантичний пошук через pgvector
-    // повертає топ-N агентів за косинусною схожістю до query embedding
     @Query(value = """
             SELECT * FROM agent_registry
             WHERE is_active = true
+              AND embedding IS NOT NULL
             ORDER BY embedding <=> CAST(:embedding AS vector)
             LIMIT :limit
             """, nativeQuery = true)
@@ -30,4 +44,5 @@ public interface AgentRegistryRepository extends JpaRepository<AgentRegistry, Lo
             @Param("embedding") String embedding,
             @Param("limit")     int limit
     );
+
 }

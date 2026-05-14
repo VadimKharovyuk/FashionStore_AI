@@ -3,18 +3,13 @@ package com.example.fashionstore_ai.model;
 import com.example.fashionstore_ai.enums.AgentType;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "tool_registry")
-@Getter
-@Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter @Setter @Builder
+@NoArgsConstructor @AllArgsConstructor
 public class ToolRegistry {
 
     @Id
@@ -24,8 +19,8 @@ public class ToolRegistry {
     @Column(name = "tool_name", length = 200, nullable = false)
     private String toolName;
 
-    @JdbcTypeCode(SqlTypes.VECTOR)
-    @Column(name = "embedding", columnDefinition = "vector(1024)")
+    // embedding керується тільки через нативний SQL
+    @Transient
     private float[] embedding;
 
     @Column(name = "display_name", length = 200)
@@ -85,9 +80,3 @@ public class ToolRegistry {
         updatedAt = LocalDateTime.now();
     }
 }
-
-
-
-//@JdbcTypeCode(SqlTypes.VECTOR)
-//@Column(name = "embedding", columnDefinition = "vector(1024)")
-//private List<Float> embedding;
