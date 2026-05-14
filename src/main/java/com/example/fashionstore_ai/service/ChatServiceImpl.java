@@ -9,8 +9,6 @@ import com.example.fashionstore_ai.model.ChatMessage;
 import com.example.fashionstore_ai.model.ChatSession;
 import com.example.fashionstore_ai.repository.ChatMessageRepository;
 import com.example.fashionstore_ai.repository.ChatSessionRepository;
-import com.example.fashionstore_ai.service.ChatService;
-import com.example.fashionstore_ai.service.ContextService;
 import com.example.fashionstore_ai.tools.OrchestratorAgent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

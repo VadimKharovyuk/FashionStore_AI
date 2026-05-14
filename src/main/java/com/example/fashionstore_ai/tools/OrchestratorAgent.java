@@ -1,6 +1,9 @@
 package com.example.fashionstore_ai.tools;
 
 import com.example.fashionstore_ai.enums.AgentType;
+import com.example.fashionstore_ai.tools.agent.ShoppingAssistant;
+import com.example.fashionstore_ai.tools.agent.SizingAgent;
+import com.example.fashionstore_ai.tools.agent.SupportAgent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.Message;
@@ -8,7 +11,6 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Component
@@ -18,6 +20,7 @@ public class OrchestratorAgent {
 
     private final ShoppingAssistant shoppingAssistant;
     private final SizingAgent sizingAgent;
+    private final SupportAgent supportAgent;
 
     // ── Ключові слова для маршрутизації ───────────────────────────
 
@@ -74,10 +77,9 @@ public class OrchestratorAgent {
                 agentType, sessionId);
 
         return switch (agentType) {
-            case SIZING_AGENT       -> sizingAgent.chatStream(sessionId, userMessage, history);
-            case SUPPORT_AGENT      -> Flux.just(
-                    "SupportAgent ще в розробці. Для питань по замовленнях — зв'яжіться з підтримкою.");
-            default                 -> shoppingAssistant.chatStream(sessionId, userMessage, history);
+            case SIZING_AGENT  -> sizingAgent.chatStream(sessionId, userMessage, history);
+            case SUPPORT_AGENT -> supportAgent.chatStream(sessionId, userMessage, history);
+            default            -> shoppingAssistant.chatStream(sessionId, userMessage, history);
         };
     }
 
@@ -90,7 +92,7 @@ public class OrchestratorAgent {
 
         return switch (agentType) {
             case SIZING_AGENT  -> sizingAgent.chat(sessionId, userMessage, history);
-            case SUPPORT_AGENT -> "SupportAgent ще в розробці.";
+            case SUPPORT_AGENT -> supportAgent.chat(sessionId, userMessage, history);
             default            -> shoppingAssistant.chat(sessionId, userMessage, history);
         };
     }

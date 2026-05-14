@@ -1,4 +1,5 @@
-package com.example.fashionstore_ai.tools;
+package com.example.fashionstore_ai.tools.agent;
+import com.example.fashionstore_ai.tools.SizingTool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
