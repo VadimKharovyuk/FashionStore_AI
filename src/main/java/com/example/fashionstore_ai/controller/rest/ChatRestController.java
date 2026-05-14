@@ -3,8 +3,8 @@ package com.example.fashionstore_ai.controller.rest;
 import com.example.fashionstore_ai.config.SessionResolver;
 import com.example.fashionstore_ai.dto.chat.ChatMessageRequest;
 import com.example.fashionstore_ai.dto.chat.ChatMessageResponse;
+import com.example.fashionstore_ai.dto.chat.StreamChunk;
 import com.example.fashionstore_ai.service.ChatService;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -26,17 +26,17 @@ public class ChatRestController {
     private final ChatService chatService;
     private final SessionResolver sessionResolver;
 
-    // ── SSE: стрімінг токен за токеном ───────────────────────────
+    // ── SSE: стрімінг з типізованими chunk-ами ───────────────────
 
-    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> stream(
-            @RequestParam String message,
-            HttpServletRequest request,
-            HttpServletResponse response
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<StreamChunk> stream(
+            @Valid @RequestBody ChatMessageRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
     ) {
-        String sessionId = sessionResolver.resolve(request, response);
+        String sessionId = sessionResolver.resolve(httpRequest, httpResponse);
         log.info("ChatRestController.stream: sessionId={}", sessionId);
-        return chatService.chatStream(sessionId, message);
+        return chatService.chatStream(sessionId, request.message());
     }
 
     // ── POST: звичайна відповідь (без стрімінгу) ─────────────────

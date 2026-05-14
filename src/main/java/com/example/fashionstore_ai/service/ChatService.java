@@ -2,6 +2,7 @@ package com.example.fashionstore_ai.service;
 
 import com.example.fashionstore_ai.dto.chat.ChatMessageResponse;
 import com.example.fashionstore_ai.dto.chat.ChatSessionResponse;
+import com.example.fashionstore_ai.dto.chat.StreamChunk;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -9,7 +10,7 @@ import java.util.List;
 public interface ChatService {
 
     // стрімінг відповіді токен за токеном (для SSE)
-    Flux<String> chatStream(String sessionId, String userMessage);
+    Flux<StreamChunk> chatStream(String sessionId, String userMessage);
 
     // звичайний запит без стрімінгу (для тестів / API)
     ChatMessageResponse chat(String sessionId, String userMessage);

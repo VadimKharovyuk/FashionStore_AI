@@ -2,15 +2,13 @@ package com.example.fashionstore_ai.service;
 
 import com.example.fashionstore_ai.dto.chat.ChatMessageResponse;
 import com.example.fashionstore_ai.dto.chat.ChatSessionResponse;
+import com.example.fashionstore_ai.dto.chat.StreamChunk;
 import com.example.fashionstore_ai.enums.AgentType;
 import com.example.fashionstore_ai.mapper.ChatMapper;
 import com.example.fashionstore_ai.model.ChatMessage;
 import com.example.fashionstore_ai.model.ChatSession;
 import com.example.fashionstore_ai.repository.ChatMessageRepository;
 import com.example.fashionstore_ai.repository.ChatSessionRepository;
-
-import com.example.fashionstore_ai.service.ChatService;
-import com.example.fashionstore_ai.service.ContextService;
 import com.example.fashionstore_ai.tools.ShoppingAssistant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +16,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
@@ -36,38 +34,44 @@ public class ChatServiceImpl implements ChatService {
     // ── Streaming ─────────────────────────────────────────────────
 
     @Override
-    public Flux<String> chatStream(String sessionId, String userMessage) {
+    public Flux<StreamChunk> chatStream(String sessionId, String userMessage) {
         log.info("ChatService.chatStream: sessionId={}", sessionId);
 
-        // Sinks — міст між колбеком стрімінгу і Flux
-        Sinks.Many<String> sink = Sinks.many().unicast().onBackpressureBuffer();
-        StringBuilder fullResponse = new StringBuilder();
+        return Flux.defer(() -> {
+            // підготовка сесії і history
+            ChatSession session = getOrCreateSession(sessionId);
+            int messageIndex = (int) chatMessageRepository.countByChatSessionId(session.getId());
+            contextService.saveUserMessage(session, userMessage, messageIndex);
+            List<Message> history = contextService.buildHistory(session);
 
-        // підготовка сесії і history в окремому потоці
-        ChatSession session = getOrCreateSession(sessionId);
-        int messageIndex = (int) chatMessageRepository.countByChatSessionId(session.getId());
-        contextService.saveUserMessage(session, userMessage, messageIndex);
-        List<Message> history = contextService.buildHistory(session);
+            StringBuilder fullResponse = new StringBuilder();
 
-        // стрімінг через ShoppingAssistant
-        shoppingAssistant.chatStream(sessionId, userMessage, history)
-                .doOnNext(token -> {
-                    fullResponse.append(token);
-                    sink.tryEmitNext(token);
-                })
-                .doOnComplete(() -> {
-                    // після завершення стрімінгу — зберігаємо повну відповідь в БД
-                    saveCompletedResponse(session, fullResponse.toString(), messageIndex + 1);
-                    sink.tryEmitComplete();
-                })
-                .doOnError(e -> {
-                    log.error("ChatService.chatStream error: sessionId={}", sessionId, e);
-                    sink.tryEmitNext("\n[Помилка: " + e.getMessage() + "]");
-                    sink.tryEmitComplete();
-                })
-                .subscribe();
-
-        return sink.asFlux();
+            return Flux.just(StreamChunk.session(sessionId))
+                    .concatWith(
+                            shoppingAssistant.chatStream(sessionId, userMessage, history)
+                                    .map(token -> {
+                                        fullResponse.append(token);
+                                        return StreamChunk.token(token);
+                                    })
+                    )
+                    .concatWith(Flux.defer(() -> {
+                        try {
+                            ChatMessage saved = contextService.saveAssistantMessage(
+                                    session, fullResponse.toString(),
+                                    messageIndex + 1, AgentType.SHOPPING_ASSISTANT);
+                            contextService.summarizeIfNeeded(session);
+                            return Flux.just(StreamChunk.message(saved.getId()));
+                        } catch (Exception e) {
+                            log.warn("ChatService: не вдалось зберегти відповідь: {}", e.getMessage());
+                            return Flux.empty();
+                        }
+                    }))
+                    .concatWith(Flux.just(StreamChunk.done()))
+                    .onErrorResume(e -> {
+                        log.error("ChatService.chatStream error", e);
+                        return Flux.just(StreamChunk.error(e.getMessage()), StreamChunk.done());
+                    });
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     // ── Non-streaming (для тестів) ────────────────────────────────
