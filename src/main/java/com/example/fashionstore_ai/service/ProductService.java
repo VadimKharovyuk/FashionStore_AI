@@ -3,6 +3,7 @@ package com.example.fashionstore_ai.service;
 
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.*;
+import com.example.fashionstore_ai.util.PageResponse;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -34,4 +35,10 @@ public interface ProductService {
 
     // записати перегляд товару (для ViewHistory)
     void recordView(String sessionId, Long productId);
+
+    PageResponse<ProductResponse> getCatalog(Category category, Gender gender,
+                                             Season season, Color color,
+                                             Material material, FitType fitType,
+                                             BigDecimal maxPrice, String search,
+                                             int page, int size);
 }

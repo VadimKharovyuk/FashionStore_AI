@@ -1,4 +1,4 @@
-package com.example.fashionstore_ai.service;
+package com.example.fashionstore_ai.service.impl;
 
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.Category;

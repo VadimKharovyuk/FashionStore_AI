@@ -1,4 +1,4 @@
-package com.example.fashionstore_ai.service;
+package com.example.fashionstore_ai.service.impl;
 import com.example.fashionstore_ai.dto.order.CreateOrderRequest;
 import com.example.fashionstore_ai.dto.order.OrderResponse;
 import com.example.fashionstore_ai.enums.OrderStatus;
@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 

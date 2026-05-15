@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Каталог — FashionStore AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+
+    /* ── Navbar ── */
+    .navbar { background: #fff; border-bottom: 1px solid #e9ecef; }
+    .navbar-brand { font-weight: 600; font-size: 1rem; }
+
+    /* ── Filters sidebar ── */
+    .filter-card {
+      background: #fff;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .filter-card select, .filter-card input {
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+      font-size: .875rem;
+    }
+    .filter-card select:focus, .filter-card input:focus {
+      border-color: #212529;
+      box-shadow: none;
+    }
+    .btn-apply {
+      background: #212529;
+      color: #fff;
+      border-radius: 8px;
+      border: none;
+      width: 100%;
+      padding: .6rem;
+      font-size: .875rem;
+    }
+    .btn-apply:hover { opacity: .85; }
+    .btn-reset {
+      border-radius: 8px;
+      width: 100%;
+      font-size: .875rem;
+    }
+
+    /* ── Product card ── */
+    .product-card {
+      background: #fff;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      overflow: hidden;
+      transition: box-shadow .2s, transform .2s;
+      height: 100%;
+    }
+    .product-card:hover {
+      box-shadow: 0 4px 20px rgba(0,0,0,.08);
+      transform: translateY(-2px);
+    }
+    .product-card img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+    }
+    .product-card .card-body { padding: 1rem; }
+    .product-card .brand {
+      font-size: .75rem;
+      color: #6c757d;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .product-card .name {
+      font-size: .9rem;
+      font-weight: 500;
+      color: #212529;
+      margin: .25rem 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .product-card .price {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #212529;
+    }
+    .product-card .price-old {
+      font-size: .8rem;
+      color: #adb5bd;
+      text-decoration: line-through;
+    }
+    .badge-new { background: #212529; color: #fff; font-size: .65rem; }
+    .badge-sale { background: #dc3545; color: #fff; font-size: .65rem; }
+    .badge-hit { background: #f8f9fa; color: #6c757d;
+      border: 1px solid #dee2e6; font-size: .65rem; }
+
+    /* ── Pagination ── */
+    .page-link {
+      border-radius: 8px !important;
+      border: 1px solid #e9ecef;
+      color: #212529;
+      margin: 0 2px;
+    }
+    .page-link:hover, .page-item.active .page-link {
+      background: #212529;
+      border-color: #212529;
+      color: #fff;
+    }
+
+    /* ── Search bar ── */
+    .search-input {
+      border-radius: 10px;
+      border: 1px solid #dee2e6;
+      font-size: .9rem;
+    }
+    .search-input:focus {
+      border-color: #212529;
+      box-shadow: none;
+    }
+    .btn-search {
+      background: #212529;
+      color: #fff;
+      border-radius: 10px;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar sticky-top px-3 py-2 mb-4">
+  <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+    <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center"
+         style="width:32px;height:32px;flex-shrink:0">
+      <i class="bi bi-stars text-white" style="font-size:.8rem;"></i>
+    </div>
+    FashionStore AI
+  </a>
+  <div class="d-flex gap-2">
+    <a href="/products" class="btn btn-sm btn-dark rounded-pill">
+      <i class="bi bi-grid me-1"></i>Каталог
+    </a>
+    <a href="/chat" class="btn btn-sm btn-outline-dark rounded-pill">
+      <i class="bi bi-chat me-1"></i>AI Чат
+    </a>
+  </div>
+</nav>
+
+<div class="container-lg pb-5">
+  <div class="row g-4">
+
+    <!-- ── Filters ── -->
+    <div class="col-12 col-md-3">
+      <div class="filter-card">
+        <div class="fw-semibold mb-3" style="font-size:.9rem;">
+          <i class="bi bi-funnel me-1"></i>Фільтри
+        </div>
+
+        <form th:action="@{/products}" method="get">
+          <!-- Search -->
+          <div class="mb-3">
+            <label class="form-label text-muted" style="font-size:.75rem;">Пошук</label>
+            <input type="text" name="search" class="form-control search-input"
+                   placeholder="Назва або бренд..."
+                   th:value="${search}">
+          </div>
+
+          <!-- Category -->
+          <div class="mb-3">
+            <label class="form-label text-muted" style="font-size:.75rem;">Категорія</label>
+            <select name="category" class="form-select">
+              <option value="">Всі</option>
+              <option th:each="cat : ${categories}"
+                      th:value="${cat}"
+                      th:text="${cat}"
+                      th:selected="${cat == selectedCategory}">
+              </option>
+            </select>
+          </div>
+
+          <!-- Gender -->
+          <div class="mb-3">
+            <label class="form-label text-muted" style="font-size:.75rem;">Стать</label>
+            <select name="gender" class="form-select">
+              <option value="">Всі</option>
+              <option th:each="g : ${genders}"
+                      th:value="${g}"
+                      th:text="${g}"
+                      th:selected="${g == selectedGender}">
+              </option>
+            </select>
+          </div>
+
+          <!-- Season -->
+          <div class="mb-3">
+            <label class="form-label text-muted" style="font-size:.75rem;">Сезон</label>
+            <select name="season" class="form-select">
+              <option value="">Всі</option>
+              <option th:each="s : ${seasons}"
+                      th:value="${s}"
+                      th:text="${s}"
+                      th:selected="${s == selectedSeason}">
+              </option>
+            </select>
+          </div>
+
+          <!-- Color -->
+          <div class="mb-3">
+            <label class="form-label text-muted" style="font-size:.75rem;">Колір</label>
+            <select name="color" class="form-select">
+              <option value="">Всі</option>
+              <option th:each="c : ${colors}"
+                      th:value="${c}"
+                      th:text="${c}"
+                      th:selected="${c == selectedColor}">
+              </option>
+            </select>
+          </div>
+
+          <!-- Max Price -->
+          <div class="mb-4">
+            <label class="form-label text-muted" style="font-size:.75rem;">
+              Макс. ціна ($)
+            </label>
+            <input type="number" name="maxPrice" class="form-control"
+                   placeholder="напр. 100"
+                   th:value="${selectedMaxPrice}">
+          </div>
+
+          <button type="submit" class="btn-apply mb-2">
+            <i class="bi bi-search me-1"></i>Застосувати
+          </button>
+          <a href="/products" class="btn btn-outline-secondary btn-reset">
+            <i class="bi bi-x-circle me-1"></i>Скинути
+          </a>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Products grid ── -->
+    <div class="col-12 col-md-9">
+
+      <!-- Header -->
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <span class="fw-semibold" th:text="${totalElements}">0</span>
+          <span class="text-muted" style="font-size:.875rem;"> товарів</span>
+        </div>
+        <div class="text-muted" style="font-size:.8rem;">
+          Сторінка <span th:text="${currentPage + 1}">1</span>
+          з <span th:text="${totalPages}">1</span>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div th:if="${#lists.isEmpty(products)}"
+           class="text-center text-muted py-5">
+        <i class="bi bi-bag-x" style="font-size:2rem;"></i>
+        <p class="mt-3 mb-1 fw-semibold">Нічого не знайдено</p>
+        <p style="font-size:.85rem;">Спробуй змінити фільтри або
+          <a href="/products" class="text-dark">скинути пошук</a>
+        </p>
+      </div>
+
+      <!-- Grid -->
+      <div class="row g-3">
+        <div class="col-6 col-lg-4"
+             th:each="product : ${products}">
+          <a th:href="@{/products/{id}(id=${product.id})}"
+             class="text-decoration-none">
+            <div class="product-card">
+              <div class="position-relative">
+                <img th:src="${product.imageUrl}"
+                     th:alt="${product.name}"
+                     onerror="this.src='https://via.placeholder.com/400x220?text=No+Image'">
+                <div class="position-absolute top-0 start-0 p-2 d-flex gap-1 flex-wrap">
+                                    <span th:if="${product.isNew}"
+                                          class="badge badge-new rounded-pill">NEW</span>
+                  <span th:if="${product.isBestseller}"
+                        class="badge badge-hit rounded-pill">
+                                        <i class="bi bi-star-fill me-1"></i>ХІТ
+                                    </span>
+                  <span th:if="${product.discountPercent > 0}"
+                        class="badge badge-sale rounded-pill"
+                        th:text="'-' + ${product.discountPercent} + '%'">
+                                    </span>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="brand" th:text="${product.brand}">Brand</div>
+                <div class="name" th:text="${product.name}">Name</div>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                                    <span class="price"
+                                          th:text="'$' + ${product.discountedPrice}">$0</span>
+                  <span th:if="${product.discountPercent > 0}"
+                        class="price-old"
+                        th:text="'$' + ${product.price}">$0</span>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <nav th:if="${totalPages > 1}" class="mt-4">
+        <ul class="pagination justify-content-center flex-wrap gap-1">
+          <li class="page-item" th:classappend="${!hasPrevious} ? 'disabled'">
+            <a class="page-link"
+               th:href="@{/products(page=${currentPage - 1},
+                                       search=${search}, category=${selectedCategory},
+                                       gender=${selectedGender}, maxPrice=${selectedMaxPrice})}">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </li>
+
+          <li class="page-item"
+              th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
+              th:classappend="${i == currentPage} ? 'active'">
+            <a class="page-link" th:text="${i + 1}"
+               th:href="@{/products(page=${i},
+                                       search=${search}, category=${selectedCategory},
+                                       gender=${selectedGender}, maxPrice=${selectedMaxPrice})}">
+            </a>
+          </li>
+
+          <li class="page-item" th:classappend="${!hasNext} ? 'disabled'">
+            <a class="page-link"
+               th:href="@{/products(page=${currentPage + 1},
+                                       search=${search}, category=${selectedCategory},
+                                       gender=${selectedGender}, maxPrice=${selectedMaxPrice})}">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-package com.example.fashionstore_ai.service;
+package com.example.fashionstore_ai.service.impl;
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.*;
 import com.example.fashionstore_ai.mapper.ProductMapper;
@@ -8,9 +8,14 @@ import com.example.fashionstore_ai.repository.ProductRepository;
 import com.example.fashionstore_ai.repository.ProductSizeRepository;
 import com.example.fashionstore_ai.repository.ViewHistoryRepository;
 import com.example.fashionstore_ai.service.ProductService;
+import com.example.fashionstore_ai.util.PageResponse;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -160,5 +165,60 @@ public class ProductServiceImpl implements ProductService {
                 );
 
         log.debug("ProductService.recordView: sessionId={} productId={}", sessionId, productId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ProductResponse> getCatalog(Category category,
+                                                    Gender gender,
+                                                    Season season,
+                                                    Color color,
+                                                    Material material,
+                                                    FitType fitType,
+                                                    BigDecimal maxPrice,
+                                                    String search,
+                                                    int page,
+                                                    int size) {
+        Pageable pageable = PageRequest.of(
+                page, size,
+                Sort.by(Sort.Order.desc("isBestseller"), Sort.Order.desc("createdAt"))
+        );
+
+        Page<Product> productPage = productRepository.findWithFiltersPageable(
+                category, gender, season, color, material, fitType, maxPrice, pageable
+        );
+
+        // фільтр по search в Java — уникаємо проблеми з bytea в JPQL
+        String term = (search != null && !search.isBlank()) ? search.trim().toLowerCase() : null;
+
+        Page<ProductResponse> responsePage = productPage.map(p -> {
+            if (term != null) {
+                boolean matches = p.getName().toLowerCase().contains(term)
+                        || (p.getBrand() != null && p.getBrand().toLowerCase().contains(term));
+                if (!matches) return null;
+            }
+            return productMapper.toResponse(p);
+        }).map(r -> r); // map не фільтрує null — треба окремо
+
+        // фільтруємо null після map
+        List<ProductResponse> filtered = productPage.getContent().stream()
+                .filter(p -> term == null
+                        || p.getName().toLowerCase().contains(term)
+                        || (p.getBrand() != null && p.getBrand().toLowerCase().contains(term)))
+                .map(productMapper::toResponse)
+                .toList();
+
+        // будуємо PageResponse вручну
+        return PageResponse.<ProductResponse>builder()
+                .content(filtered)
+                .currentPage(productPage.getNumber())
+                .totalPages(productPage.getTotalPages())
+                .totalElements(productPage.getTotalElements())
+                .pageSize(productPage.getSize())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .isFirst(productPage.isFirst())
+                .isLast(productPage.isLast())
+                .build();
     }
 }

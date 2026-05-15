@@ -1,4 +1,4 @@
-package com.example.fashionstore_ai.service;
+package com.example.fashionstore_ai.service.impl;
 import com.example.fashionstore_ai.dto.userMeasurement.SizeRecommendation;
 import com.example.fashionstore_ai.dto.userMeasurement.SizingChartResponse;
 import com.example.fashionstore_ai.dto.userMeasurement.UserMeasurementsDto;
@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor

@@ -1,8 +1,9 @@
 package com.example.fashionstore_ai.repository;
 
-
 import com.example.fashionstore_ai.enums.*;
 import com.example.fashionstore_ai.model.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,8 +18,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Optional<Product> findBySku(String sku);
 
-    // ── ShoppingAssistant: пошук з фільтрами ─────────────────────
-    // всі параметри опціональні — null ігнорується
+    // ── ShoppingAssistant: пошук з фільтрами (List — для агентів) ─
     @Query("""
             SELECT p FROM Product p
             WHERE (:category IS NULL OR p.category = :category)
@@ -41,6 +41,29 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("maxPrice") BigDecimal maxPrice
     );
 
+    // ── Каталог: пошук з фільтрами + пагінація (Page — для UI) ───
+    @Query("""
+            SELECT p FROM Product p
+            WHERE (:category IS NULL OR p.category = :category)
+              AND (:gender   IS NULL OR p.gender   = :gender)
+              AND (:season   IS NULL OR p.season   = :season
+                                    OR p.season    = com.example.fashionstore_ai.enums.Season.ALL_SEASON)
+              AND (:color    IS NULL OR p.color    = :color)
+              AND (:material IS NULL OR p.material = :material)
+              AND (:fitType  IS NULL OR p.fitType  = :fitType)
+              AND (:maxPrice IS NULL OR p.price    <= :maxPrice)
+            """)
+    Page<Product> findWithFiltersPageable(
+            @Param("category") Category category,
+            @Param("gender")   Gender gender,
+            @Param("season")   Season season,
+            @Param("color")    Color color,
+            @Param("material") Material material,
+            @Param("fitType")  FitType fitType,
+            @Param("maxPrice") BigDecimal maxPrice,
+            Pageable pageable
+    );
+
     // ── RecommendationAgent ───────────────────────────────────────
 
     List<Product> findByIsBestsellerTrueOrderByCreatedAtDesc();
@@ -50,7 +73,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByCategoryAndGenderAndIdNotIn(
             Category category, Gender gender, List<Long> excludeIds);
 
-    // пошук по тегах — для getProductsByTags()
     @Query("""
             SELECT DISTINCT p FROM Product p
             JOIN p.tags t
@@ -63,7 +85,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("excludeIds") List<Long> excludeIds
     );
 
-    // для RecommendationAgent: товари тієї самої категорії (схожі)
     @Query("""
             SELECT p FROM Product p
             WHERE p.category = :category
@@ -77,7 +98,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("limit")     int limit
     );
 
-    // з sizes одразу — уникаємо N+1 при відображенні каталогу
     @Query("""
             SELECT DISTINCT p FROM Product p
             LEFT JOIN FETCH p.sizes
