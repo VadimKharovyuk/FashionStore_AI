@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кошик — FashionStore AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body { background: #f8f9fa; }
+
+        /* ── Navbar ── */
+        .navbar { background: #fff; border-bottom: 1px solid #e9ecef; }
+        .navbar-brand { font-weight: 600; font-size: 1rem; }
+        .nav-link {
+            font-size: .875rem;
+            color: #6c757d;
+            padding: .4rem .75rem;
+            border-radius: 8px;
+            transition: background .15s, color .15s;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: #f8f9fa;
+            color: #212529;
+        }
+        .cart-badge {
+            font-size: .6rem;
+            top: -4px;
+            right: -6px;
+        }
+
+        /* ── Cart item card ── */
+        .cart-card {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1rem;
+            transition: box-shadow .2s;
+        }
+        .cart-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+
+        .cart-card img {
+            width: 90px;
+            height: 110px;
+            object-fit: cover;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .item-name {
+            font-size: .9rem;
+            font-weight: 500;
+            color: #212529;
+        }
+        .item-brand {
+            font-size: .75rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .item-price {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #212529;
+        }
+        .size-badge {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: .75rem;
+            font-weight: 500;
+        }
+
+        /* ── Qty controls ── */
+        .qty-btn {
+            width: 28px; height: 28px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #fff;
+            font-size: .85rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .qty-btn:hover { border-color: #212529; }
+        .qty-value {
+            min-width: 28px;
+            text-align: center;
+            font-size: .875rem;
+            font-weight: 500;
+        }
+        .btn-remove {
+            background: none;
+            border: none;
+            color: #adb5bd;
+            font-size: .85rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: color .15s, background .15s;
+        }
+        .btn-remove:hover { color: #dc3545; background: #fff5f5; }
+
+        /* ── Summary card ── */
+        .summary-card {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: sticky;
+            top: 76px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: .875rem;
+            padding: .4rem 0;
+        }
+        .summary-total {
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-top: 1px solid #e9ecef;
+            padding-top: .75rem;
+            margin-top: .25rem;
+        }
+        .btn-checkout {
+            background: #212529;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: .8rem;
+            width: 100%;
+            font-size: .9rem;
+            font-weight: 500;
+            transition: opacity .2s;
+        }
+        .btn-checkout:hover { opacity: .85; }
+        .btn-checkout:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-continue {
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: .7rem;
+            width: 100%;
+            font-size: .875rem;
+            color: #212529;
+            background: #fff;
+            transition: background .15s;
+        }
+        .btn-continue:hover { background: #f8f9fa; }
+
+        /* ── Empty state ── */
+        .empty-state {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav class="navbar sticky-top px-3 px-md-4 py-2 mb-4">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+        <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center"
+             style="width:32px;height:32px;flex-shrink:0">
+            <i class="bi bi-stars text-white" style="font-size:.8rem;"></i>
+        </div>
+        FashionStore AI
+    </a>
+    <div class="d-flex align-items-center gap-1">
+        <a href="/"         class="nav-link"><i class="bi bi-house me-1"></i>Головна</a>
+        <a href="/products" class="nav-link"><i class="bi bi-grid me-1"></i>Каталог</a>
+        <a href="/chat"     class="nav-link"><i class="bi bi-chat-dots me-1"></i>AI Чат</a>
+        <a href="/cart"     class="nav-link active position-relative">
+            <i class="bi bi-bag me-1"></i>Кошик
+            <span class="position-absolute cart-badge badge rounded-pill bg-dark"
+                  id="cart-count" style="display:none;">0</span>
+        </a>
+    </div>
+</nav>
+
+<div class="container-lg pb-5">
+
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <h5 class="mb-0 fw-semibold">Кошик</h5>
+        <span class="text-muted" style="font-size:.875rem;"
+              id="items-count"></span>
+    </div>
+
+    <div class="row g-4" id="cart-content">
+        <!-- Завантажується через JS -->
+        <div class="col-12 text-center py-5" id="loading">
+            <div class="spinner-border spinner-border-sm text-secondary me-2"></div>
+            Завантаження...
+        </div>
+    </div>
+
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center border-0 rounded-pill px-3"
+         role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-msg"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let cartData = null;
+
+    // ── Init ──────────────────────────────────────────────────────
+    loadCart();
+
+    async function loadCart() {
+        try {
+            const res  = await fetch('/api/cart');
+            cartData   = await res.json();
+            renderCart(cartData);
+        } catch (e) {
+            document.getElementById('loading').textContent = 'Помилка завантаження кошика';
+        }
+    }
+
+    // ── Render ────────────────────────────────────────────────────
+    function renderCart(cart) {
+        const content = document.getElementById('cart-content');
+        content.innerHTML = '';
+
+        // лічильник в navbar
+        updateCartBadge(cart.totalItems || 0);
+
+        if (cart.isEmpty || !cart.items || cart.items.length === 0) {
+            content.innerHTML = `
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="bi bi-bag-x" style="font-size:2.5rem;color:#dee2e6;"></i>
+                        <p class="mt-3 mb-1 fw-semibold">Кошик порожній</p>
+                        <p class="text-muted mb-4" style="font-size:.875rem;">
+                            Додайте товари з каталогу або запитайте AI-асистента
+                        </p>
+                        <div class="d-flex gap-2 justify-content-center flex-wrap">
+                            <a href="/products" class="btn btn-dark rounded-pill px-4">
+                                <i class="bi bi-grid me-1"></i>Перейти до каталогу
+                            </a>
+                            <a href="/chat" class="btn btn-outline-dark rounded-pill px-4">
+                                <i class="bi bi-chat-dots me-1"></i>Запитати AI
+                            </a>
+                        </div>
+                    </div>
+                </div>`;
+            document.getElementById('items-count').textContent = '';
+            return;
+        }
+
+        document.getElementById('items-count').textContent =
+            `(${cart.totalItems} од.)`;
+
+        // items column
+        const itemsCol = document.createElement('div');
+        itemsCol.className = 'col-12 col-lg-8';
+        itemsCol.innerHTML = '<div class="d-flex flex-column gap-3" id="items-list"></div>';
+        content.appendChild(itemsCol);
+
+        // summary column
+        const summaryCol = document.createElement('div');
+        summaryCol.className = 'col-12 col-lg-4';
+        summaryCol.innerHTML = buildSummary(cart);
+        content.appendChild(summaryCol);
+
+        // render items
+        const list = document.getElementById('items-list');
+        cart.items.forEach(item => list.appendChild(buildItem(item)));
+    }
+
+    function buildItem(item) {
+        const div = document.createElement('div');
+        div.className = 'cart-card';
+        div.id = 'item-' + item.id;
+        div.innerHTML = `
+            <div class="d-flex gap-3">
+                <a href="/products/${item.productId}">
+                    <img src="${item.imageUrl || ''}"
+                         alt="${item.productName}"
+                         onerror="this.src='https://via.placeholder.com/90x110?text=?'">
+                </a>
+                <div class="flex-grow-1 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="item-brand">${item.brand || ''}</div>
+                        <a href="/products/${item.productId}" class="text-decoration-none">
+                            <div class="item-name">${item.productName}</div>
+                        </a>
+                        <span class="size-badge mt-1 d-inline-block">
+                            Розмір: ${item.size}
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mt-2">
+                        <!-- Qty -->
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="qty-btn" onclick="changeQty(${item.id}, ${item.quantity - 1})">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                            <span class="qty-value">${item.quantity}</span>
+                            <button class="qty-btn" onclick="changeQty(${item.id}, ${item.quantity + 1})">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="item-price">$${item.subtotal}</span>
+                            <button class="btn-remove" onclick="removeItem(${item.id})"
+                                    title="Видалити">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        return div;
+    }
+
+    function buildSummary(cart) {
+        return `
+            <div class="summary-card">
+                <div class="fw-semibold mb-3" style="font-size:.95rem;">Підсумок</div>
+                <div class="summary-row">
+                    <span class="text-muted">Товарів</span>
+                    <span>${cart.totalItems} од.</span>
+                </div>
+                <div class="summary-row">
+                    <span class="text-muted">Доставка</span>
+                    <span class="text-success">Безкоштовно</span>
+                </div>
+                <div class="summary-row summary-total">
+                    <span>Разом</span>
+                    <span>$${cart.totalPrice}</span>
+                </div>
+                <div class="d-grid gap-2 mt-4">
+                    <button class="btn-checkout" onclick="checkout()">
+                        <i class="bi bi-credit-card me-2"></i>Оформити замовлення
+                    </button>
+                    <a href="/products" class="btn-continue text-decoration-none text-center">
+                        <i class="bi bi-arrow-left me-1"></i>Продовжити покупки
+                    </a>
+                </div>
+                <div class="mt-3 text-center text-muted" style="font-size:.75rem;">
+                    <i class="bi bi-shield-check me-1"></i>Безпечна оплата
+                </div>
+            </div>`;
+    }
+
+    // ── Actions ───────────────────────────────────────────────────
+
+    async function changeQty(itemId, newQty) {
+        if (newQty <= 0) { removeItem(itemId); return; }
+        try {
+            const res  = await fetch('/api/cart/update/' + itemId, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: newQty })
+            });
+            if (res.ok) { cartData = await res.json(); renderCart(cartData); }
+            else showToast('❌ Помилка оновлення', 'bg-danger text-white');
+        } catch { showToast('❌ Помилка з\'єднання', 'bg-danger text-white'); }
+    }
+
+    async function removeItem(itemId) {
+        try {
+            const res = await fetch('/api/cart/remove/' + itemId, { method: 'DELETE' });
+            if (res.ok) {
+                cartData = await res.json();
+                renderCart(cartData);
+                showToast('✅ Товар видалено', 'bg-dark text-white');
+            }
+        } catch { showToast('❌ Помилка з\'єднання', 'bg-danger text-white'); }
+    }
+
+    function checkout() {
+        showToast('🚧 Оформлення замовлення — в розробці', 'bg-dark text-white');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+
+    function updateCartBadge(count) {
+        const badge = document.getElementById('cart-count');
+        if (count > 0) { badge.textContent = count; badge.style.display = 'inline'; }
+        else badge.style.display = 'none';
+    }
+
+    function showToast(msg, cls) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toast-msg').textContent = msg;
+        toast.className = `toast align-items-center border-0 rounded-pill px-3 ${cls}`;
+        new bootstrap.Toast(toast, { delay: 2500 }).show();
+    }
+</script>
+</body>
+</html>

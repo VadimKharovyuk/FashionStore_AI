@@ -1,9 +1,8 @@
 package com.example.fashionstore_ai.controller.rest;
-
 import com.example.fashionstore_ai.config.SessionResolver;
-
 import com.example.fashionstore_ai.dto.cart.CartItemRequest;
 import com.example.fashionstore_ai.dto.cart.CartResponse;
+import com.example.fashionstore_ai.dto.cart.UpdateQuantityRequest;
 import com.example.fashionstore_ai.service.CartService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -54,5 +53,21 @@ public class CartRestController {
     ) {
         String sessionId = sessionResolver.resolve(httpRequest, httpResponse);
         return ResponseEntity.ok(cartService.getCart(sessionId));
+    }
+
+
+    // PATCH /api/cart/update/{cartItemId}
+    @PatchMapping("/update/{cartItemId}")
+    public ResponseEntity<CartResponse> update(
+            @PathVariable Long cartItemId,
+            @RequestBody UpdateQuantityRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    ) {
+        String sessionId = sessionResolver.resolve(httpRequest, httpResponse);
+        log.info("CartRestController.update: sessionId={} cartItemId={} qty={}",
+                sessionId, cartItemId, request.quantity());
+        return ResponseEntity.ok(
+                cartService.updateQuantity(sessionId, cartItemId, request.quantity()));
     }
 }

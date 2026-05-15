@@ -14,7 +14,7 @@ import java.util.List;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
 @JsonTypeName("PageResponse")
-@JsonIgnoreProperties(ignoreUnknown = true)  // рекомендую добавить
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Data
 @Builder
 @NoArgsConstructor
