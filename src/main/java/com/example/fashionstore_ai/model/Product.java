@@ -89,7 +89,7 @@ public class Product {
     private List<ProductSize> sizes = new ArrayList<>();
 
     // Теги для RecommendationAgent
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "product_tags",
             joinColumns = @JoinColumn(name = "product_id")
@@ -98,7 +98,7 @@ public class Product {
     private List<String> tags = new ArrayList<>();
 
     // Додаткові фото
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "product_images",
             joinColumns = @JoinColumn(name = "product_id")
@@ -106,14 +106,13 @@ public class Product {
     @Column(name = "image_url")
     private List<String> additionalImages = new ArrayList<>();
 
+
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-
-
 
 
     @PrePersist

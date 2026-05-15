@@ -189,7 +189,7 @@
             <img th:src="${product.imageUrl}"
                  th:alt="${product.name}"
                  class="product-img"
-                 onerror="this.src='https://via.placeholder.com/480x480?text=No+Image'">
+                 onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22480%22 height=%22480%22%3E%3Crect width=%22480%22 height=%22480%22 fill=%22%23f1f3f5%22/%3E%3Ctext x=%22240%22 y=%22248%22 text-anchor=%22middle%22 fill=%22%23adb5bd%22 font-size=%2218%22%3EНемає фото%3C/text%3E%3C/svg%3E'">
         </div>
 
         <!-- ── Details ── -->
@@ -303,7 +303,7 @@
                 <a th:href="@{/products/{id}(id=${p.id})}" class="text-decoration-none">
                     <div class="similar-card">
                         <img th:src="${p.imageUrl}" th:alt="${p.name}"
-                             onerror="this.src='https://via.placeholder.com/200x160'">
+                             onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22160%22%3E%3Crect width=%22200%22 height=%22160%22 fill=%22%23f1f3f5%22/%3E%3Ctext x=%22100%22 y=%2288%22 text-anchor=%22middle%22 fill=%22%23adb5bd%22 font-size=%2213%22%3EНемає фото%3C/text%3E%3C/svg%3E'">
                         <div class="sc-body">
                             <div class="text-muted" style="font-size:.7rem;"
                                  th:text="${p.brand}"></div>

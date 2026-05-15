@@ -4,7 +4,6 @@ import com.example.fashionstore_ai.enums.Size;
 import com.example.fashionstore_ai.model.Product;
 import com.example.fashionstore_ai.model.ProductSize;
 import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
