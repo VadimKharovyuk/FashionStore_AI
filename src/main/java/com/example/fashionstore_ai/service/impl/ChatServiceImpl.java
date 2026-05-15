@@ -40,19 +40,19 @@ public class ChatServiceImpl implements ChatService {
         log.info("ChatService.chatStream: sessionId={}", sessionId);
 
         return Flux.defer(() -> {
-            // 1. Підготовка — короткі транзакції, з'єднання не тримаємо
-            ChatSession session    = getOrCreateSession(sessionId);
-            int messageIndex       = (int) chatMessageRepository.countByChatSessionId(session.getId());
+            // 1. Підготовка
+            ChatSession session   = getOrCreateSession(sessionId);
+            int messageIndex      = (int) chatMessageRepository.countByChatSessionId(session.getId());
             contextService.saveUserMessage(session, userMessage, messageIndex);
-            List<Message> history  = contextService.buildHistory(session);
+            List<Message> history = contextService.buildHistory(session);
 
-            // 2. Визначаємо агента один раз — не викликаємо route двічі
-            AgentType usedAgent    = orchestratorAgent.route(userMessage);
-            StringBuilder fullResponse = new StringBuilder();
+            // 2. Визначаємо агента ОДИН РАЗ — не викликаємо route двічі
+            AgentType usedAgent       = orchestratorAgent.route(userMessage);
+            StringBuilder fullResponse = new StringBuilder();  // ← тут
 
             return Flux.just(StreamChunk.session(sessionId))
                     .concatWith(
-                            orchestratorAgent.chatStream(sessionId, userMessage, history)
+                            orchestratorAgent.chatStreamByType(usedAgent, sessionId, userMessage, history)
                                     .map(token -> {
                                         fullResponse.append(token);
                                         return StreamChunk.token(token);
@@ -60,15 +60,10 @@ public class ChatServiceImpl implements ChatService {
                     )
                     .concatWith(Flux.defer(() -> {
                         try {
-                            // 3. Зберігаємо відповідь — коротка транзакція
                             ChatMessage saved = contextService.saveAssistantMessage(
                                     session, fullResponse.toString(),
                                     messageIndex + 1, usedAgent);
-
-                            // 4. summarizeIfNeeded — БЕЗ транзакції всередині
-                            // з'єднання вільне поки Ollama генерує summary
                             contextService.summarizeIfNeeded(session);
-
                             return Flux.just(StreamChunk.message(saved.getId()));
                         } catch (Exception e) {
                             log.warn("ChatService: не вдалось зберегти відповідь: {}", e.getMessage());
@@ -90,20 +85,18 @@ public class ChatServiceImpl implements ChatService {
     public ChatMessageResponse chat(String sessionId, String userMessage) {
         log.info("ChatService.chat: sessionId={}", sessionId);
 
-        ChatSession session    = getOrCreateSession(sessionId);
-        int messageIndex       = (int) chatMessageRepository.countByChatSessionId(session.getId());
-        AgentType usedAgent    = orchestratorAgent.route(userMessage);
+        ChatSession session   = getOrCreateSession(sessionId);
+        int messageIndex      = (int) chatMessageRepository.countByChatSessionId(session.getId());
+        AgentType usedAgent   = orchestratorAgent.route(userMessage);
 
         contextService.saveUserMessage(session, userMessage, messageIndex);
-        List<Message> history  = contextService.buildHistory(session);
-        String agentResponse   = orchestratorAgent.chat(sessionId, userMessage, history);
+        List<Message> history = contextService.buildHistory(session);
+        String agentResponse  = orchestratorAgent.chat(sessionId, userMessage, history);
 
         ChatMessage assistantMsg = contextService.saveAssistantMessage(
                 session, agentResponse, messageIndex + 1, usedAgent);
 
-        // summarize після закриття основної транзакції
         contextService.summarizeIfNeeded(session);
-
         return chatMapper.toResponse(assistantMsg);
     }
 

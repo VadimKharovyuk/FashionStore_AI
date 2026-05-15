@@ -132,6 +132,18 @@ public class HybridOrchestratorAgent implements OrchestratorAgent {
     }
 
     @Override
+    public Flux<String> chatStreamByType(AgentType agentType, String sessionId,
+                                         String userMessage, List<Message> history) {
+        log.info("[Hybrid] chatStreamByType → {} | sessionId={}", agentType, sessionId);
+        return switch (agentType) {
+            case SIZING_AGENT         -> sizingAgent.chatStream(sessionId, userMessage, history);
+            case SUPPORT_AGENT        -> supportAgent.chatStream(sessionId, userMessage, history);
+            case RECOMMENDATION_AGENT -> recommendationAgent.chatStream(sessionId, userMessage, history);
+            default                   -> shoppingAssistant.chatStream(sessionId, userMessage, history);
+        };
+    }
+
+    @Override
     public String chat(String sessionId, String userMessage, List<Message> history) {
         AgentType agent = route(userMessage);
         log.info("[Hybrid] → {} | sessionId={}", agent, sessionId);
