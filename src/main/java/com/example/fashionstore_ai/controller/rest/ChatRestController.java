@@ -62,4 +62,20 @@ public class ChatRestController {
         String sessionId = sessionResolver.resolve(request, response);
         return ResponseEntity.ok(chatService.getMessages(sessionId));
     }
+
+    @DeleteMapping("/history")
+    public ResponseEntity<Void> clearHistory(
+            HttpServletRequest request, HttpServletResponse response) {
+        String sessionId = sessionResolver.resolve(request, response);
+        chatService.clearHistory(sessionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reset")
+    public ResponseEntity<Void> resetSession(
+            HttpServletRequest request, HttpServletResponse response) {
+        String sessionId = sessionResolver.resolve(request, response);
+        chatService.resetSession(sessionId);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -121,6 +121,41 @@ public class ChatServiceImpl implements ChatService {
                 .orElse(List.of());
     }
 
+
+    @Override
+    @Transactional
+    public void resetSession(String sessionId) {
+        log.info("ChatService.resetSession: sessionId={}", sessionId);
+
+        // 1. Закриваємо поточну активну сесію
+        chatSessionRepository
+                .findBySessionIdAndStatus(sessionId, "ACTIVE")
+                .ifPresent(session -> {
+                    session.setStatus("CLOSED");
+                    chatSessionRepository.save(session);
+                    log.info("ChatService: сесію {} закрито", session.getId());
+                });
+
+        // 2. Нова сесія створюється автоматично при наступному запиті
+        // через getOrCreateSession() в chatStream()
+    }
+
+
+    @Override
+    @Transactional
+    public void clearHistory(String sessionId) {
+        log.info("ChatService.clearHistory: sessionId={}", sessionId);
+
+        chatSessionRepository
+                .findBySessionIdAndStatus(sessionId, "ACTIVE")
+                .ifPresent(session -> {
+                    chatMessageRepository.deleteByChatSessionId(session.getId());
+                    session.setSummarizedMessagesCount(0);
+                    chatSessionRepository.save(session);
+                    log.info("ChatService: історію очищено для sessionId={}", sessionId);
+                });
+    }
+
     // ── Private helpers ───────────────────────────────────────────
 
     private ChatSession getOrCreateSession(String sessionId) {

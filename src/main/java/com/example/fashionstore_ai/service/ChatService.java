@@ -20,4 +20,10 @@ public interface ChatService {
 
     // отримати тільки повідомлення
     List<ChatMessageResponse> getMessages(String sessionId);
+    // повне скидання сесії
+    void resetSession(String sessionId);
+
+
+    ///clearHistory — видаляє повідомлення, сесія залишається активною. Summary зберігається — агент пам'ятає контекст. Для користувача — чистий чат але агент "пам'ятає" попередні покупки.
+    void clearHistory(String sessionId);
 }
