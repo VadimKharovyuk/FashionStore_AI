@@ -170,8 +170,10 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public void clearCart(String sessionId) {
-        cartRepository.findBySessionId(sessionId).ifPresent(cart -> {
-            cartItemRepository.deleteByCartId(cart.getId());
+        cartRepository.findBySessionIdWithItems(sessionId).ifPresent(cart -> {
+            cart.getItems().clear();
+            cartRepository.save(cart);
+            cartRepository.flush();
             log.info("CartService: кошик очищено для sessionId={}", sessionId);
         });
     }
