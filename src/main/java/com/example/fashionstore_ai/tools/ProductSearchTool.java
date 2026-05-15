@@ -1,5 +1,6 @@
 package com.example.fashionstore_ai.tools;
 
+
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.*;
 import com.example.fashionstore_ai.service.ProductService;
@@ -117,20 +118,19 @@ public class ProductSearchTool {
         sb.append("Знайдено товарів: ").append(products.size()).append("\n\n");
 
         products.forEach(p -> {
-            sb.append("ID: ").append(p.id()).append("\n");
-            sb.append("Назва: ").append(p.name()).append("\n");
-            sb.append("Бренд: ").append(p.brand()).append("\n");
-            sb.append("Ціна: $").append(p.discountedPrice());
-            if (p.discountPercent() > 0) {
-                sb.append(" (знижка ").append(p.discountPercent()).append("%, було $")
-                        .append(p.price()).append(")");
+            // посилання на сторінку товару
+            sb.append("[").append(p.name()).append("](/products/").append(p.id()).append(")")
+                    .append(" | ").append(p.brand());
+            sb.append(" | $").append(p.discountedPrice());
+            if (p.discountPercent() != null && p.discountPercent() > 0) {
+                sb.append(" (знижка ").append(p.discountPercent()).append("%)");
             }
             sb.append("\n");
             sb.append("Категорія: ").append(p.category())
                     .append(" | Стать: ").append(p.gender()).append("\n");
             sb.append("Колір: ").append(p.colorDescription() != null
                     ? p.colorDescription() : p.color().name()).append("\n");
-            sb.append("Доступні розміри: ").append(formatSizes(p.availableSizes())).append("\n");
+            sb.append("Розміри: ").append(formatSizes(p.availableSizes())).append("\n");
             if (p.isNew()) sb.append("🆕 Новинка\n");
             if (p.isBestseller()) sb.append("⭐ Хіт продажів\n");
             sb.append("---\n");
