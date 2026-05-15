@@ -1,4 +1,5 @@
 package com.example.fashionstore_ai.tools;
+
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.Category;
 import com.example.fashionstore_ai.enums.Gender;
@@ -34,9 +35,16 @@ public class RecommendationTool {
             @ToolParam(description = "Кількість рекомендацій (за замовчуванням 5)", required = false)
             Integer limit
     ) {
-        log.info("Tool getPersonalizedRecommendations: sessionId={}", sessionId);
+        // нормалізуємо sessionId — модель може передати у верхньому регістрі або з <>
+        String normalizedSessionId = sessionId
+                .toLowerCase()
+                .replace("<", "")
+                .replace(">", "")
+                .trim();
+
+        log.info("Tool getPersonalizedRecommendations: sessionId={}", normalizedSessionId);
         int l = limit != null ? limit : 5;
-        List<ProductResponse> products = recommendationService.getPersonalized(sessionId, l);
+        List<ProductResponse> products = recommendationService.getPersonalized(normalizedSessionId, l);
 
         if (products.isEmpty()) return "На жаль, рекомендацій поки немає. Переглянь каталог!";
         return "🎯 Рекомендації для тебе:\n\n" + formatList(products);

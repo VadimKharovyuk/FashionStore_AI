@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.UUID;
 
+
 @Component
 @Slf4j
 public class SessionResolver {
@@ -26,7 +27,7 @@ public class SessionResolver {
             if (existing != null && !existing.isBlank()) return existing;
         }
 
-        String newSessionId = UUID.randomUUID().toString();
+        String newSessionId = UUID.randomUUID().toString(); // завжди lowercase
         Cookie cookie = new Cookie(SESSION_COOKIE, newSessionId);
         cookie.setMaxAge(COOKIE_MAX_AGE);
         cookie.setPath("/");
@@ -35,5 +36,14 @@ public class SessionResolver {
 
         log.info("SessionResolver: новий sessionId={}", newSessionId);
         return newSessionId;
+    }
+
+    // нормалізація sessionId що приходить від LLM
+    public static String normalize(String sessionId) {
+        if (sessionId == null) return "";
+        return sessionId.toLowerCase()
+                .replace("<", "")
+                .replace(">", "")
+                .trim();
     }
 }

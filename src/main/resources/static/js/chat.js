@@ -92,7 +92,17 @@ async function streamResponse(text, typingEl) {
 const MD_LINK = new RegExp('\\[([^\\]]+)\\]\\((/[^)]+)\\)', 'g');
 
 function renderMd(text) {
-    return text
+    // спочатку замінюємо ID посилання ДО escaping
+    let result = text
+        // паттерн "Назва (Бренд, ID:15)" → клікабельна назва
+        .replace(/([^(\n]+)\([^,)]+,\s*ID:(\d+)\)/g,
+            (_, name, id) => '[' + name.trim() + '](/products/' + id + ')')
+        // просто "ID:15" → посилання
+        .replace(/\bID:(\d+)\b/g,
+            '[переглянути #$1](/products/$1)');
+
+    // тепер безпечний escape і решта markdown
+    return result
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(MD_LINK, '<a href="$2" class="text-dark fw-semibold" target="_blank">$1</a>')
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')

@@ -1,6 +1,7 @@
 package com.example.fashionstore_ai.tools;
 
 
+import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.*;
 import com.example.fashionstore_ai.service.ProductService;
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class ProductSearchTool {
+public class ProductSearchTool extends BaseTool {
 
     private final ProductService productService;
 
