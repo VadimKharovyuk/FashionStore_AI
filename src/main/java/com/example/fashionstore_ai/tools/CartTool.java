@@ -1,4 +1,5 @@
 package com.example.fashionstore_ai.tools;
+import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.dto.cart.CartResponse;
 import com.example.fashionstore_ai.enums.Size;
 import com.example.fashionstore_ai.service.CartService;
@@ -11,7 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class CartTool {
+public class CartTool extends BaseTool {
 
     private final CartService cartService;
 

@@ -1,5 +1,6 @@
 package com.example.fashionstore_ai.tools;
 
+import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.Category;
 import com.example.fashionstore_ai.enums.Gender;
@@ -17,7 +18,7 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class RecommendationTool {
+public class RecommendationTool extends BaseTool {
 
     private final RecommendationService recommendationService;
 

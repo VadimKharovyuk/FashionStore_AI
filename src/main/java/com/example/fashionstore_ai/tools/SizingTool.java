@@ -1,4 +1,6 @@
 package com.example.fashionstore_ai.tools;
+
+import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.dto.userMeasurement.SizeRecommendation;
 import com.example.fashionstore_ai.dto.userMeasurement.SizingChartResponse;
 import com.example.fashionstore_ai.dto.userMeasurement.UserMeasurementsDto;
@@ -17,7 +19,7 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class SizingTool {
+public class SizingTool extends BaseTool {
 
     private final SizingService sizingService;
 
