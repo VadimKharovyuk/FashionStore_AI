@@ -12,11 +12,14 @@ import com.example.fashionstore_ai.repository.CartRepository;
 import com.example.fashionstore_ai.repository.ProductRepository;
 import com.example.fashionstore_ai.repository.ProductSizeRepository;
 import com.example.fashionstore_ai.service.CartService;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +31,7 @@ public class CartServiceImpl implements CartService {
     private final ProductRepository productRepository;
     private final ProductSizeRepository productSizeRepository;
     private final CartMapper cartMapper;
+    private final EntityManager entityManager;
 
     // ── getCart ───────────────────────────────────────────────────
 
@@ -99,26 +103,29 @@ public class CartServiceImpl implements CartService {
     }
 
     // ── removeFromCart ────────────────────────────────────────────
-
     @Override
     @Transactional
     public CartResponse removeFromCart(String sessionId, Long cartItemId) {
+        log.info("CartService.removeFromCart: sessionId={} cartItemId={}", sessionId, cartItemId);
+
         Cart cart = getOrCreateCart(sessionId);
 
-        CartItem item = cartItemRepository.findById(cartItemId)
+        // знаходимо item в колекції cart — не через окремий репозиторій
+        CartItem item = cart.getItems().stream()
+                .filter(i -> i.getId().equals(cartItemId))
+                .findFirst()
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Позицію кошика не знайдено: id=" + cartItemId));
 
-        // безпека: перевіряємо що item належить саме цій сесії
-        if (!item.getCart().getId().equals(cart.getId())) {
-            throw new SecurityException("Немає доступу до цієї позиції кошика");
-        }
+        // видаляємо з колекції батька — orphanRemoval = true зробить DELETE
+        cart.getItems().remove(item);
+        cartRepository.save(cart);
+        cartRepository.flush();
 
-        cartItemRepository.delete(item);
-        log.debug("CartService: видалено cartItemId={} з sessionId={}", cartItemId, sessionId);
+        log.info("CartService: видалено cartItemId={}, залишилось items={}",
+                cartItemId, cart.getItems().size());
 
-        return cartMapper.toResponse(
-                cartRepository.findBySessionIdWithItems(sessionId).orElse(cart));
+        return cartMapper.toResponse(cart);
     }
 
     // ── updateQuantity ────────────────────────────────────────────

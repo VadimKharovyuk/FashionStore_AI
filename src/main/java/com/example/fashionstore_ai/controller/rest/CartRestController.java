@@ -43,7 +43,21 @@ public class CartRestController {
     ) {
         String sessionId = sessionResolver.resolve(httpRequest, httpResponse);
         log.info("CartRestController.remove: sessionId={} cartItemId={}", sessionId, cartItemId);
-        return ResponseEntity.ok(cartService.removeFromCart(sessionId, cartItemId));
+
+        // стан ДО видалення
+        CartResponse before = cartService.getCart(sessionId);
+        log.info("Cart BEFORE: items={} ids={}",
+                before.items().size(),
+                before.items().stream().map(i -> i.id()).toList());
+
+        CartResponse after = cartService.removeFromCart(sessionId, cartItemId);
+
+        // стан ПІСЛЯ видалення
+        log.info("Cart AFTER: items={} ids={}",
+                after.items().size(),
+                after.items().stream().map(i -> i.id()).toList());
+
+        return ResponseEntity.ok(after);
     }
 
     @GetMapping
@@ -54,6 +68,7 @@ public class CartRestController {
         String sessionId = sessionResolver.resolve(httpRequest, httpResponse);
         return ResponseEntity.ok(cartService.getCart(sessionId));
     }
+
 
 
     // PATCH /api/cart/update/{cartItemId}

@@ -287,7 +287,7 @@
                 <a href="/products/${item.productId}">
                     <img src="${item.imageUrl || ''}"
                          alt="${item.productName}"
-                         onerror="this.src='https://via.placeholder.com/90x110?text=?'">
+                         onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2290%22 height=%22110%22%3E%3Crect width=%2290%22 height=%22110%22 fill=%22%23f1f3f5%22/%3E%3Ctext x=%2245%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%23adb5bd%22 font-size=%2212%22%3E?%3C/text%3E%3C/svg%3E'">
                 </a>
                 <div class="flex-grow-1 d-flex flex-column justify-content-between">
                     <div>
@@ -371,12 +371,19 @@
     async function removeItem(itemId) {
         try {
             const res = await fetch('/api/cart/remove/' + itemId, { method: 'DELETE' });
+            console.log('remove status:', res.status);
             if (res.ok) {
                 cartData = await res.json();
+                console.log('items after remove:', cartData.items?.map(i => i.id));
                 renderCart(cartData);
                 showToast('✅ Товар видалено', 'bg-dark text-white');
+            } else {
+                showToast('❌ Помилка видалення', 'bg-danger text-white');
             }
-        } catch { showToast('❌ Помилка з\'єднання', 'bg-danger text-white'); }
+        } catch(e) {
+            console.error('remove exception:', e);
+            showToast('❌ Помилка з\'єднання', 'bg-danger text-white');
+        }
     }
 
     function checkout() {
