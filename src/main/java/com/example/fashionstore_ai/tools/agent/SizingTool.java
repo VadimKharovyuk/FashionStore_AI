@@ -1,4 +1,4 @@
-package com.example.fashionstore_ai.tools;
+package com.example.fashionstore_ai.tools.agent;
 
 import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.dto.userMeasurement.SizeRecommendation;
@@ -14,7 +14,6 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -29,9 +28,10 @@ public class SizingTool extends BaseTool {
                   Використовуй коли: користувач назвав параметри тіла (груди, талія, стегна, зріст).
                   Всі параметри опціональні — зберігай тільки те що назвав користувач.
                   Параметри зберігаються між сесіями — не питай знову якщо вже є.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String saveUserMeasurements(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
             @ToolParam(description = "Обхват грудей в см", required = false)
@@ -52,17 +52,22 @@ public class SizingTool extends BaseTool {
             @ToolParam(description = "Бажаний крій: SLIM, REGULAR, OVERSIZE, RELAXED", required = false)
             FitType preferredFit
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool saveUserMeasurements: sessionId={} chest={} waist={} hips={} height={}",
                 sessionId, chest, waist, hips, height);
+
+        if (sessionId.isBlank()) {
+            return "Помилка: sessionId порожній. Використовуй sessionId з системного промпту.";
+        }
 
         UserMeasurementsDto saved = sizingService.saveMeasurements(
                 sessionId, chest, waist, hips, height, weight, preferredFit);
 
         StringBuilder sb = new StringBuilder("✅ Параметри збережено:\n");
-        if (saved.chest()  != null) sb.append("• Груди: ").append(saved.chest()).append("см\n");
-        if (saved.waist()  != null) sb.append("• Талія: ").append(saved.waist()).append("см\n");
-        if (saved.hips()   != null) sb.append("• Стегна: ").append(saved.hips()).append("см\n");
-        if (saved.height() != null) sb.append("• Зріст: ").append(saved.height()).append("см\n");
+        if (saved.chest()      != null) sb.append("• Груди: ").append(saved.chest()).append("см\n");
+        if (saved.waist()      != null) sb.append("• Талія: ").append(saved.waist()).append("см\n");
+        if (saved.hips()       != null) sb.append("• Стегна: ").append(saved.hips()).append("см\n");
+        if (saved.height()     != null) sb.append("• Зріст: ").append(saved.height()).append("см\n");
         if (saved.preferredFit() != null) sb.append("• Крій: ").append(saved.preferredFit()).append("\n");
         return sb.toString();
     }
@@ -72,12 +77,18 @@ public class SizingTool extends BaseTool {
                   Отримати збережені параметри тіла користувача.
                   Використовуй перед підбором розміру щоб перевірити чи є вже дані.
                   Якщо даних немає — попроси користувача їх надати.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String getUserMeasurements(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool getUserMeasurements: sessionId={}", sessionId);
+
+        if (sessionId.isBlank()) {
+            return "Помилка: sessionId порожній. Використовуй sessionId з системного промпту.";
+        }
 
         UserMeasurementsDto m = sizingService.getMeasurements(sessionId);
 
@@ -87,10 +98,10 @@ public class SizingTool extends BaseTool {
         }
 
         StringBuilder sb = new StringBuilder("Збережені параметри користувача:\n");
-        if (m.chest()  != null) sb.append("• Груди: ").append(m.chest()).append("см\n");
-        if (m.waist()  != null) sb.append("• Талія: ").append(m.waist()).append("см\n");
-        if (m.hips()   != null) sb.append("• Стегна: ").append(m.hips()).append("см\n");
-        if (m.height() != null) sb.append("• Зріст: ").append(m.height()).append("см\n");
+        if (m.chest()      != null) sb.append("• Груди: ").append(m.chest()).append("см\n");
+        if (m.waist()      != null) sb.append("• Талія: ").append(m.waist()).append("см\n");
+        if (m.hips()       != null) sb.append("• Стегна: ").append(m.hips()).append("см\n");
+        if (m.height()     != null) sb.append("• Зріст: ").append(m.height()).append("см\n");
         if (m.preferredFit() != null) sb.append("• Крій: ").append(m.preferredFit()).append("\n");
         return sb.toString();
     }
@@ -141,9 +152,10 @@ public class SizingTool extends BaseTool {
                   Використовуй коли: користувач питає який розмір йому підійде в певному бренді.
                   Перед викликом переконайся що параметри тіла збережені через getUserMeasurements.
                   Повертає рекомендацію з поясненням і нотатками бренду.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String recommendSize(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
             @ToolParam(description = "Назва бренду: Zara, H&M, Mango, Massimo Dutti, Reserved")
@@ -152,7 +164,12 @@ public class SizingTool extends BaseTool {
             @ToolParam(description = "Стать: WOMEN, MEN, UNISEX")
             Gender gender
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool recommendSize: sessionId={} brand={} gender={}", sessionId, brand, gender);
+
+        if (sessionId.isBlank()) {
+            return "Помилка: sessionId порожній. Використовуй sessionId з системного промпту.";
+        }
 
         SizeRecommendation rec = sizingService.recommend(sessionId, brand, gender);
 
@@ -184,7 +201,7 @@ public class SizingTool extends BaseTool {
                   """)
     public String getAvailableBrands() {
         log.info("Tool getAvailableBrands");
-        List<String> brands = sizingService.getAvailableBrands();
-        return "Доступні бренди для підбору розміру: " + String.join(", ", brands);
+        return "Доступні бренди для підбору розміру: " +
+                String.join(", ", sizingService.getAvailableBrands());
     }
 }

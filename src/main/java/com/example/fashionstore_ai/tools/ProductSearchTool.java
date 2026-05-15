@@ -29,25 +29,33 @@ public class ProductSearchTool extends BaseTool {
                   Використовуй коли: користувач шукає одяг, питає що є в наявності,
                   хоче знайти товар за категорією, кольором, ціною або іншими характеристиками.
                   Повертає список товарів з цінами, розмірами і наявністю.
+                  ВАЖЛИВО: використовуй тільки точні значення enum-ів!
+                  Category: CASUAL, SPORT, CLASSIC, EVENING, BUSINESS, BEACH, PARTY, STREETWEAR, LOUNGEWEAR
+                  Gender: WOMEN, MEN, UNISEX
+                  Season: SUMMER, WINTER, SPRING_SUMMER, FALL_WINTER, ALL_SEASON
+                  Color: BLACK, WHITE, RED, BLUE, GREEN, BEIGE, PINK, BROWN, GREY, YELLOW, ORANGE, PURPLE, NAVY, OLIVE, MULTICOLOR, PRINT
+                  Material: COTTON, POLYESTER, WOOL, SILK, LINEN, DENIM, LEATHER, VISCOSE, CASHMERE, SYNTHETIC_MIX
+                  FitType: SLIM, REGULAR, OVERSIZE, RELAXED, WIDE_LEG, CROP
+                  Якщо не впевнений у значенні — залиш параметр null!
                   """)
     public String searchProducts(
-            @ToolParam(description = "Категорія: CASUAL, SPORT, CLASSIC, EVENING, BUSINESS, BEACH, PARTY, STREETWEAR, LOUNGEWEAR", required = false)
-            Category category,
+            @ToolParam(description = "Категорія: CASUAL, SPORT, CLASSIC, EVENING, BUSINESS, BEACH, PARTY, STREETWEAR, LOUNGEWEAR. null якщо не вказано", required = false)
+            String category,
 
-            @ToolParam(description = "Стать: WOMEN, MEN, UNISEX", required = false)
-            Gender gender,
+            @ToolParam(description = "Стать: WOMEN, MEN, UNISEX. null якщо не вказано", required = false)
+            String gender,
 
-            @ToolParam(description = "Сезон: SUMMER, WINTER, SPRING_SUMMER, FALL_WINTER, ALL_SEASON", required = false)
-            Season season,
+            @ToolParam(description = "Сезон: SUMMER, WINTER, SPRING_SUMMER, FALL_WINTER, ALL_SEASON. null якщо не вказано", required = false)
+            String season,
 
-            @ToolParam(description = "Колір: BLACK, WHITE, RED, BLUE, GREEN, BEIGE, PINK, BROWN, GREY, YELLOW, ORANGE, PURPLE, NAVY, OLIVE, MULTICOLOR, PRINT", required = false)
-            Color color,
+            @ToolParam(description = "Колір: BLACK, WHITE, RED, BLUE, GREEN, BEIGE, PINK, BROWN, GREY, YELLOW, ORANGE, PURPLE, NAVY, OLIVE, MULTICOLOR, PRINT. null якщо не вказано", required = false)
+            String color,
 
-            @ToolParam(description = "Матеріал: COTTON, POLYESTER, WOOL, SILK, LINEN, DENIM, LEATHER, VISCOSE, CASHMERE, SYNTHETIC_MIX", required = false)
-            Material material,
+            @ToolParam(description = "Матеріал: COTTON, POLYESTER, WOOL, SILK, LINEN, DENIM, LEATHER, VISCOSE, CASHMERE, SYNTHETIC_MIX. null якщо не вказано", required = false)
+            String material,
 
-            @ToolParam(description = "Крій: SLIM, REGULAR, OVERSIZE, RELAXED, WIDE_LEG, CROP", required = false)
-            FitType fitType,
+            @ToolParam(description = "Крій: SLIM, REGULAR, OVERSIZE, RELAXED, WIDE_LEG, CROP. null якщо не вказано", required = false)
+            String fitType,
 
             @ToolParam(description = "Максимальна ціна в USD", required = false)
             BigDecimal maxPrice
@@ -56,7 +64,13 @@ public class ProductSearchTool extends BaseTool {
                 category, gender, season, color, material, fitType, maxPrice);
 
         List<ProductResponse> products = productService.search(
-                category, gender, season, color, material, fitType, maxPrice);
+                parseEnum(Category.class, category),
+                parseEnum(Gender.class, gender),
+                parseEnum(Season.class, season),
+                parseEnum(Color.class, color),
+                parseEnum(Material.class, material),
+                parseEnum(FitType.class, fitType),
+                maxPrice);
 
         if (products.isEmpty()) {
             return "Товарів за вказаними фільтрами не знайдено. " +
@@ -110,6 +124,18 @@ public class ProductSearchTool extends BaseTool {
         }
 
         return "Розмір " + size + " є в наявності: " + qty + " шт.";
+    }
+
+    // ── Safe enum parser — null якщо невідоме значення ──────────
+    private <T extends Enum<T>> T parseEnum(Class<T> enumClass, String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return Enum.valueOf(enumClass, value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Tool searchProducts: невідоме значення '{}' для {}, ігноруємо",
+                    value, enumClass.getSimpleName());
+            return null;
+        }
     }
 
     // ── Format helpers ────────────────────────────────────────────

@@ -12,7 +12,6 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
@@ -28,24 +27,24 @@ public class RecommendationTool extends BaseTool {
                   Використовуй як відповідь на: "що порадиш?", "що мені підійде?",
                   "покажи щось цікаве", "рекомендації для мене".
                   Якщо немає history — повертає bestsellers.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String getPersonalizedRecommendations(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
             @ToolParam(description = "Кількість рекомендацій (за замовчуванням 5)", required = false)
             Integer limit
     ) {
-        // нормалізуємо sessionId — модель може передати у верхньому регістрі або з <>
-        String normalizedSessionId = sessionId
-                .toLowerCase()
-                .replace("<", "")
-                .replace(">", "")
-                .trim();
+        sessionId = normalizeSessionId(sessionId);
+        log.info("Tool getPersonalizedRecommendations: sessionId={}", sessionId);
 
-        log.info("Tool getPersonalizedRecommendations: sessionId={}", normalizedSessionId);
+        if (sessionId.isBlank()) {
+            return "Помилка: sessionId порожній. Використовуй sessionId з системного промпту.";
+        }
+
         int l = limit != null ? limit : 5;
-        List<ProductResponse> products = recommendationService.getPersonalized(normalizedSessionId, l);
+        List<ProductResponse> products = recommendationService.getPersonalized(sessionId, l);
 
         if (products.isEmpty()) return "На жаль, рекомендацій поки немає. Переглянь каталог!";
         return "🎯 Рекомендації для тебе:\n\n" + formatList(products);
@@ -113,12 +112,10 @@ public class RecommendationTool extends BaseTool {
                   Категорія і стать опціональні.
                   """)
     public String getBestsellers(
-            @ToolParam(description = "Категорія (опціонально): CASUAL, SPORT, EVENING і т.д.",
-                    required = false)
+            @ToolParam(description = "Категорія (опціонально): CASUAL, SPORT, EVENING і т.д.", required = false)
             Category category,
 
-            @ToolParam(description = "Стать (опціонально): WOMEN, MEN, UNISEX",
-                    required = false)
+            @ToolParam(description = "Стать (опціонально): WOMEN, MEN, UNISEX", required = false)
             Gender gender,
 
             @ToolParam(description = "Кількість (за замовчуванням 5)", required = false)
@@ -159,31 +156,38 @@ public class RecommendationTool extends BaseTool {
                   Нещодавно переглянуті товари користувача.
                   Використовуй коли: "що я переглядав?", "покажи переглянуте",
                   "поверни до того що я дивився".
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String getViewHistory(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
             @ToolParam(description = "Кількість (за замовчуванням 5)", required = false)
             Integer limit
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool getViewHistory: sessionId={}", sessionId);
+
+        if (sessionId.isBlank()) {
+            return "Помилка: sessionId порожній. Використовуй sessionId з системного промпту.";
+        }
+
         int l = limit != null ? limit : 5;
         List<ProductResponse> products = recommendationService.getViewHistory(sessionId, l);
         if (products.isEmpty()) return "Історія переглядів порожня.";
         return "🕐 Нещодавно переглянуті:\n\n" + formatList(products);
     }
 
-    // ── Format helper ─────────────────────────────────────────────
+    // ── Format helper — з посиланнями на товар ────────────────────
 
     private String formatList(List<ProductResponse> products) {
         return products.stream()
                 .map(p -> {
                     StringBuilder sb = new StringBuilder();
-                    sb.append("ID: ").append(p.id()).append(" | ");
-                    sb.append(p.name()).append(" | ");
-                    sb.append(p.brand()).append(" | $");
-                    sb.append(p.discountedPrice());
+                    // markdown посилання — JS renderMd перетворить на <a>
+                    sb.append("[").append(p.name()).append("](/products/").append(p.id()).append(")")
+                            .append(" | ").append(p.brand())
+                            .append(" | $").append(p.discountedPrice());
                     if (p.discountPercent() != null && p.discountPercent() > 0) {
                         sb.append(" (-").append(p.discountPercent()).append("%)");
                     }

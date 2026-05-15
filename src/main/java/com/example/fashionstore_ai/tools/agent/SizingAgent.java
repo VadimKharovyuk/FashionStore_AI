@@ -1,5 +1,5 @@
 package com.example.fashionstore_ai.tools.agent;
-import com.example.fashionstore_ai.tools.SizingTool;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -46,12 +46,14 @@ public class SizingAgent {
 
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
-                "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах.";
+                "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах: " + sessionId;
+
+        String messageWithSession = "[sessionId=" + sessionId + "] " + userMessage;
 
         return chatClient.prompt()
                 .system(systemWithSession)
                 .messages(history)
-                .user(userMessage)
+                .user(messageWithSession)
                 .tools(sizingTool)
                 .stream()
                 .content()
@@ -63,13 +65,15 @@ public class SizingAgent {
 
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
-                "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах.";
+                "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах: " + sessionId;
+
+        String messageWithSession = "[sessionId=" + sessionId + "] " + userMessage;
 
         try {
             return chatClient.prompt()
                     .system(systemWithSession)
                     .messages(history)
-                    .user(userMessage)
+                    .user(messageWithSession)
                     .tools(sizingTool)
                     .call()
                     .content();

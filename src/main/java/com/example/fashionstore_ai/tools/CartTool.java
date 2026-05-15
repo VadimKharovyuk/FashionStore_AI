@@ -21,12 +21,15 @@ public class CartTool extends BaseTool {
                   Отримати поточний вміст кошика користувача.
                   Використовуй коли: користувач питає що в кошику,
                   хоче знати загальну суму, кількість товарів.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String getCart(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool getCart: sessionId={}", sessionId);
+        if (sessionId.isBlank()) return "Помилка: sessionId порожній.";
 
         CartResponse cart = cartService.getCart(sessionId);
         return formatCart(cart);
@@ -38,9 +41,10 @@ public class CartTool extends BaseTool {
                   Використовуй коли: користувач хоче купити товар,
                   каже "додай", "хочу це", "беру це".
                   Завжди перевіряй наявність розміру через checkStock перед додаванням.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String addToCart(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
             @ToolParam(description = "ID товару")
@@ -52,8 +56,10 @@ public class CartTool extends BaseTool {
             @ToolParam(description = "Кількість (зазвичай 1)")
             int quantity
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool addToCart: sessionId={} productId={} size={} qty={}",
                 sessionId, productId, size, quantity);
+        if (sessionId.isBlank()) return "Помилка: sessionId порожній.";
 
         try {
             CartResponse cart = cartService.addToCart(sessionId, productId, size, quantity);
@@ -68,18 +74,20 @@ public class CartTool extends BaseTool {
     @Tool(name = "removeFromCart",
             description = """
                   Видалити позицію з кошика.
-                  Використовуй коли: користувач хоче прибрати товар з кошика,
-                  передумав купувати певну річ.
+                  Використовуй коли: користувач хоче прибрати товар з кошика.
                   Потрібен cartItemId (не productId!) — його можна отримати через getCart.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String removeFromCart(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
             @ToolParam(description = "ID позиції кошика (cartItemId з getCart)")
             Long cartItemId
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool removeFromCart: sessionId={} cartItemId={}", sessionId, cartItemId);
+        if (sessionId.isBlank()) return "Помилка: sessionId порожній.";
 
         try {
             CartResponse cart = cartService.removeFromCart(sessionId, cartItemId);
@@ -94,9 +102,10 @@ public class CartTool extends BaseTool {
                   Змінити кількість товару в кошику.
                   Використовуй коли: користувач хоче більше або менше одиниць.
                   Якщо quantity=0 — товар буде видалено з кошика.
+                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String updateCartQuantity(
-            @ToolParam(description = "ID сесії користувача")
+            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
             @ToolParam(description = "ID позиції кошика (cartItemId)")
@@ -105,8 +114,10 @@ public class CartTool extends BaseTool {
             @ToolParam(description = "Нова кількість (0 = видалити)")
             int quantity
     ) {
+        sessionId = normalizeSessionId(sessionId);
         log.info("Tool updateCartQuantity: sessionId={} cartItemId={} qty={}",
                 sessionId, cartItemId, quantity);
+        if (sessionId.isBlank()) return "Помилка: sessionId порожній.";
 
         try {
             CartResponse cart = cartService.updateQuantity(sessionId, cartItemId, quantity);
