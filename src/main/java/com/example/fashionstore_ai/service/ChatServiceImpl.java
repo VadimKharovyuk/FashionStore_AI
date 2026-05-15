@@ -38,12 +38,14 @@ public class ChatServiceImpl implements ChatService {
         log.info("ChatService.chatStream: sessionId={}", sessionId);
 
         return Flux.defer(() -> {
-            // підготовка сесії і history
-            ChatSession session = getOrCreateSession(sessionId);
-            int messageIndex = (int) chatMessageRepository.countByChatSessionId(session.getId());
+            // 1. Підготовка — короткі транзакції, з'єднання не тримаємо
+            ChatSession session    = getOrCreateSession(sessionId);
+            int messageIndex       = (int) chatMessageRepository.countByChatSessionId(session.getId());
             contextService.saveUserMessage(session, userMessage, messageIndex);
-            List<Message> history = contextService.buildHistory(session);
+            List<Message> history  = contextService.buildHistory(session);
 
+            // 2. Визначаємо агента один раз — не викликаємо route двічі
+            AgentType usedAgent    = orchestratorAgent.route(userMessage);
             StringBuilder fullResponse = new StringBuilder();
 
             return Flux.just(StreamChunk.session(sessionId))
@@ -56,11 +58,15 @@ public class ChatServiceImpl implements ChatService {
                     )
                     .concatWith(Flux.defer(() -> {
                         try {
-                            AgentType usedAgent = orchestratorAgent.route(userMessage);
+                            // 3. Зберігаємо відповідь — коротка транзакція
                             ChatMessage saved = contextService.saveAssistantMessage(
                                     session, fullResponse.toString(),
                                     messageIndex + 1, usedAgent);
+
+                            // 4. summarizeIfNeeded — БЕЗ транзакції всередині
+                            // з'єднання вільне поки Ollama генерує summary
                             contextService.summarizeIfNeeded(session);
+
                             return Flux.just(StreamChunk.message(saved.getId()));
                         } catch (Exception e) {
                             log.warn("ChatService: не вдалось зберегти відповідь: {}", e.getMessage());
@@ -75,24 +81,25 @@ public class ChatServiceImpl implements ChatService {
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
-    // ── Non-streaming (для тестів) ────────────────────────────────
+    // ── Non-streaming ─────────────────────────────────────────────
 
     @Override
     @Transactional
     public ChatMessageResponse chat(String sessionId, String userMessage) {
         log.info("ChatService.chat: sessionId={}", sessionId);
 
-        ChatSession session = getOrCreateSession(sessionId);
-        int messageIndex = (int) chatMessageRepository.countByChatSessionId(session.getId());
+        ChatSession session    = getOrCreateSession(sessionId);
+        int messageIndex       = (int) chatMessageRepository.countByChatSessionId(session.getId());
+        AgentType usedAgent    = orchestratorAgent.route(userMessage);
 
         contextService.saveUserMessage(session, userMessage, messageIndex);
-        List<Message> history = contextService.buildHistory(session);
-
-        String agentResponse = orchestratorAgent.chat(sessionId, userMessage, history);
+        List<Message> history  = contextService.buildHistory(session);
+        String agentResponse   = orchestratorAgent.chat(sessionId, userMessage, history);
 
         ChatMessage assistantMsg = contextService.saveAssistantMessage(
-                session, agentResponse, messageIndex + 1, AgentType.SHOPPING_ASSISTANT);
+                session, agentResponse, messageIndex + 1, usedAgent);
 
+        // summarize після закриття основної транзакції
         contextService.summarizeIfNeeded(session);
 
         return chatMapper.toResponse(assistantMsg);
@@ -135,13 +142,5 @@ public class ChatServiceImpl implements ChatService {
                     log.info("ChatService: нова сесія sessionId={}", sessionId);
                     return saved;
                 });
-    }
-
-    @Transactional
-    protected void saveCompletedResponse(ChatSession session, String content, int messageIndex) {
-        contextService.saveAssistantMessage(
-                session, content, messageIndex, AgentType.SHOPPING_ASSISTANT);
-        contextService.summarizeIfNeeded(session);
-        log.debug("ChatService: збережено streaming відповідь ({} символів)", content.length());
     }
 }

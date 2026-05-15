@@ -1,4 +1,5 @@
 package com.example.fashionstore_ai.service;
+
 import com.example.fashionstore_ai.model.ChatMessage;
 import com.example.fashionstore_ai.model.ChatSession;
 import com.example.fashionstore_ai.repository.ChatMessageRepository;
@@ -12,6 +13,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,21 +27,14 @@ public class ContextService {
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatSessionRepository chatSessionRepository;
-    private final OllamaChatModel ollamaChatModel; // для rolling summary
+    private final OllamaChatModel ollamaChatModel;
 
-    // Рівень 1: sliding window розмір
-    private static final int HISTORY_SIZE = 20;
+    private static final int HISTORY_SIZE        = 20;
+    private static final int PINNED_COUNT        = 3;
+    private static final int SUMMARY_THRESHOLD   = 30;
+    private static final int KEEP_RECENT         = 15;
 
-    // Рівень 2: скільки перших повідомлень завжди тримаємо як якір
-    private static final int PINNED_COUNT = 3;
-
-    // Рівень 3: коли стискаємо в summary
-    private static final int SUMMARY_THRESHOLD = 30;
-
-    // скільки останніх залишаємо після стискання
-    private static final int KEEP_RECENT = 15;
-
-    // ── Головний метод — будує history для LLM ────────────────────
+    // ── buildHistory ──────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<Message> buildHistory(ChatSession session) {
@@ -50,19 +45,15 @@ public class ContextService {
 
         List<Message> result = new ArrayList<>();
 
-        // Рівень 3: якщо є summary — додаємо його першим як SystemMessage
         if (session.getSummary() != null && !session.getSummary().isBlank()) {
             result.add(new SystemMessage(
                     "[Резюме попередньої розмови]: " + session.getSummary()));
-            log.debug("ContextService: додано summary ({} символів)", session.getSummary().length());
         }
 
-        // Рівень 2: pinned — перші PINNED_COUNT повідомлень завжди в контексті
         int pinnedCount = Math.min(PINNED_COUNT, allMessages.size());
         allMessages.subList(0, pinnedCount)
                 .forEach(m -> result.add(toSpringAiMessage(m)));
 
-        // Рівень 1: sliding window — останні HISTORY_SIZE не-pinned повідомлень
         int skipTo = Math.max(pinnedCount, allMessages.size() - HISTORY_SIZE);
         if (skipTo < allMessages.size()) {
             allMessages.subList(skipTo, allMessages.size())
@@ -76,35 +67,54 @@ public class ContextService {
         return result;
     }
 
-    // ── Rolling Summary (Рівень 3) ────────────────────────────────
+    // ── summarizeIfNeeded — БЕЗ @Transactional ───────────────────
+    // Розбито на 3 методи щоб БД-з'єднання не трималось поки Ollama думає
 
-    @Transactional
     public void summarizeIfNeeded(ChatSession session) {
-        long totalMessages = chatMessageRepository.countByChatSessionId(session.getId());
-
-        if (totalMessages <= SUMMARY_THRESHOLD) return;
+        if (!needsSummarization(session)) return;
 
         log.info("ContextService: запускаємо summarization для sessionId={} (messages={})",
-                session.getSessionId(), totalMessages);
+                session.getSessionId(),
+                chatMessageRepository.countByChatSessionId(session.getId()));
 
-        // беремо все окрім останніх KEEP_RECENT повідомлень
-        int summarizeUpTo = (int) (totalMessages - KEEP_RECENT);
-        List<ChatMessage> toSummarize = chatMessageRepository
-                .findForSummarization(session.getId(), summarizeUpTo);
-
+        // Крок 1: читаємо дані → транзакція відкрилась і одразу закрилась
+        List<ChatMessage> toSummarize = getMessagesForSummarization(session);
         if (toSummarize.isEmpty()) return;
 
+        long totalMessages = chatMessageRepository.countByChatSessionId(session.getId());
+        int summarizeUpTo  = (int) (totalMessages - KEEP_RECENT);
+
+        // Крок 2: генеруємо summary БЕЗ відкритої транзакції
+        // Ollama може думати 30-60с — з'єднання з БД вільне весь цей час
         String newSummary = generateSummary(toSummarize, session.getSummary());
+        if (newSummary.isBlank()) return;
 
-        session.setSummary(newSummary);
-        session.setSummaryUpdatedAt(LocalDateTime.now());
-        session.setSummarizedMessagesCount(summarizeUpTo);
-        chatSessionRepository.save(session);
-
-        log.info("ContextService: summary оновлено ({} символів)", newSummary.length());
+        // Крок 3: зберігаємо результат → коротка нова транзакція
+        saveSummary(session, newSummary, summarizeUpTo);
     }
 
-    // ── Save message helpers ──────────────────────────────────────
+    @Transactional(readOnly = true)
+    public boolean needsSummarization(ChatSession session) {
+        return chatMessageRepository.countByChatSessionId(session.getId()) > SUMMARY_THRESHOLD;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChatMessage> getMessagesForSummarization(ChatSession session) {
+        long total        = chatMessageRepository.countByChatSessionId(session.getId());
+        int  summarizeUpTo = (int) (total - KEEP_RECENT);
+        return chatMessageRepository.findForSummarization(session.getId(), summarizeUpTo);
+    }
+
+    @Transactional
+    public void saveSummary(ChatSession session, String summary, int summarizedCount) {
+        session.setSummary(summary);
+        session.setSummaryUpdatedAt(LocalDateTime.now());
+        session.setSummarizedMessagesCount(summarizedCount);
+        chatSessionRepository.save(session);
+        log.info("ContextService: summary збережено ({} символів)", summary.length());
+    }
+
+    // ── saveUserMessage ───────────────────────────────────────────
 
     @Transactional
     public ChatMessage saveUserMessage(ChatSession session, String content, int messageIndex) {
@@ -117,6 +127,8 @@ public class ContextService {
                 .build();
         return chatMessageRepository.save(msg);
     }
+
+    // ── saveAssistantMessage ──────────────────────────────────────
 
     @Transactional
     public ChatMessage saveAssistantMessage(ChatSession session, String content,
