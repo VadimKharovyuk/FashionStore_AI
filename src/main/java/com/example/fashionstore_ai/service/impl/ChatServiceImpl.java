@@ -37,7 +37,6 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public Flux<StreamChunk> chatStream(String sessionId, String userMessage) {
-        log.info("ChatService.chatStream: sessionId={}", sessionId);
 
         return Flux.defer(() -> {
             // 1. Підготовка

@@ -1,6 +1,4 @@
 package com.example.fashionstore_ai.tools;
-
-
 import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.dto.product.ProductResponse;
 import com.example.fashionstore_ai.enums.*;
@@ -22,24 +20,32 @@ import java.util.stream.Collectors;
 public class ProductSearchTool extends BaseTool {
 
     private final ProductService productService;
+    // ── Максимум спроб для розширення пошуку ─────────────────────
+    private static final int MAX_SEARCH_RETRIES = 2;
+
 
     @Tool(name = "searchProducts",
             description = """
                   Пошук товарів у магазині за фільтрами. Всі параметри опціональні.
                   Використовуй коли: користувач шукає одяг, питає що є в наявності,
                   хоче знайти товар за категорією, кольором, ціною або іншими характеристиками.
-                  Повертає список товарів з цінами, розмірами і наявністю.
-                  ВАЖЛИВО: використовуй тільки точні значення enum-ів!
+                  Повертає JSON з полем "found": true/false.
+
+                  СТРАТЕГІЯ ПРИ ПОРОЖНЬОМУ РЕЗУЛЬТАТІ (found=false):
+                  - Спроба 1: прибери найбільш специфічний фільтр (color або material)
+                  - Спроба 2: прибери ще один фільтр (залиш тільки category або gender)
+                  - Після 2 спроб: повідом що нічого не знайдено, запитай чи змінити пошук
+                  - НІКОЛИ не вигадуй товари яких немає у відповіді
+
                   Category: CASUAL, SPORT, CLASSIC, EVENING, BUSINESS, BEACH, PARTY, STREETWEAR, LOUNGEWEAR
                   Gender: WOMEN, MEN, UNISEX
-                  Season: SUMMER, WINTER, SPRING_SUMMER, FALL_WINTER, ALL_SEASON
                   Color: BLACK, WHITE, RED, BLUE, GREEN, BEIGE, PINK, BROWN, GREY, YELLOW, ORANGE, PURPLE, NAVY, OLIVE, MULTICOLOR, PRINT
                   Material: COTTON, POLYESTER, WOOL, SILK, LINEN, DENIM, LEATHER, VISCOSE, CASHMERE, SYNTHETIC_MIX
                   FitType: SLIM, REGULAR, OVERSIZE, RELAXED, WIDE_LEG, CROP
                   Якщо не впевнений у значенні — залиш параметр null!
                   """)
     public String searchProducts(
-            @ToolParam(description = "Категорія: CASUAL, SPORT, CLASSIC, EVENING, BUSINESS, BEACH, PARTY, STREETWEAR, LOUNGEWEAR. null якщо не вказано", required = false)
+            @ToolParam(description = "Категорія: CASUAL, SPORT і т.д. null якщо не вказано", required = false)
             String category,
 
             @ToolParam(description = "Стать: WOMEN, MEN, UNISEX. null якщо не вказано", required = false)
@@ -48,20 +54,25 @@ public class ProductSearchTool extends BaseTool {
             @ToolParam(description = "Сезон: SUMMER, WINTER, SPRING_SUMMER, FALL_WINTER, ALL_SEASON. null якщо не вказано", required = false)
             String season,
 
-            @ToolParam(description = "Колір: BLACK, WHITE, RED, BLUE, GREEN, BEIGE, PINK, BROWN, GREY, YELLOW, ORANGE, PURPLE, NAVY, OLIVE, MULTICOLOR, PRINT. null якщо не вказано", required = false)
+            @ToolParam(description = "Колір: BLACK, WHITE, RED і т.д. null якщо не вказано", required = false)
             String color,
 
-            @ToolParam(description = "Матеріал: COTTON, POLYESTER, WOOL, SILK, LINEN, DENIM, LEATHER, VISCOSE, CASHMERE, SYNTHETIC_MIX. null якщо не вказано", required = false)
+            @ToolParam(description = "Матеріал: COTTON, LEATHER, WOOL і т.д. null якщо не вказано", required = false)
             String material,
 
-            @ToolParam(description = "Крій: SLIM, REGULAR, OVERSIZE, RELAXED, WIDE_LEG, CROP. null якщо не вказано", required = false)
+            @ToolParam(description = "Крій: SLIM, REGULAR, OVERSIZE і т.д. null якщо не вказано", required = false)
             String fitType,
 
             @ToolParam(description = "Максимальна ціна в USD", required = false)
-            BigDecimal maxPrice
+            BigDecimal maxPrice,
+
+            @ToolParam(description = "Номер спроби пошуку (1 = перша, 2 = розширений пошук). За замовчуванням 1", required = false)
+            Integer attempt
     ) {
-        log.info("Tool searchProducts: category={} gender={} season={} color={} material={} fitType={} maxPrice={}",
-                category, gender, season, color, material, fitType, maxPrice);
+        int currentAttempt = (attempt != null) ? attempt : 1;
+
+        log.info("Tool searchProducts [attempt={}/{}]: category={} gender={} color={} material={} fitType={} maxPrice={}",
+                currentAttempt, MAX_SEARCH_RETRIES, category, gender, color, material, fitType, maxPrice);
 
         List<ProductResponse> products = productService.search(
                 parseEnum(Category.class, category),
@@ -73,11 +84,18 @@ public class ProductSearchTool extends BaseTool {
                 maxPrice);
 
         if (products.isEmpty()) {
-            return "Товарів за вказаними фільтрами не знайдено. " +
-                    "Спробуй розширити пошук — прибери деякі фільтри.";
+            if (currentAttempt < MAX_SEARCH_RETRIES) {
+                return "ПОШУК НЕ ДАВ РЕЗУЛЬТАТІВ (спроба " + currentAttempt + " з " + MAX_SEARCH_RETRIES + "). " +
+                        "ОБОВ'ЯЗКОВО викличи searchProducts ще раз з attempt=" + (currentAttempt + 1) + " " +
+                        "і прибери фільтр color або material. НЕ відповідай без повторного виклику tool.";
+            } else {
+                return "ПОШУК НЕ ДАВ РЕЗУЛЬТАТІВ після " + MAX_SEARCH_RETRIES + " спроб. " +
+                        "Повідом користувача що нічого не знайдено і запитай чи змінити пошук. " +
+                        "НЕ додавай жодних товарів від себе.";
+            }
         }
 
-        return formatProductList(products);
+        return "ЗНАЙДЕНО " + products.size() + " товарів:\n\n" + formatProductList(products);
     }
 
     @Tool(name = "getProductDetails",
@@ -127,10 +145,107 @@ public class ProductSearchTool extends BaseTool {
     }
 
     // ── Safe enum parser — null якщо невідоме значення ──────────
+    // ── Алиасы для Category ───────────────────────────────────────────
+    private static final Map<String, String> CATEGORY_ALIASES = Map.ofEntries(
+            Map.entry("OUTERWEAR",  "CLASSIC"),
+            Map.entry("JACKET",     "CASUAL"),
+            Map.entry("COAT",       "CLASSIC"),
+            Map.entry("TOPS",       "CASUAL"),
+            Map.entry("DRESSES",    "EVENING"),
+            Map.entry("ACTIVEWEAR", "SPORT"),
+            Map.entry("SWIMWEAR",   "BEACH"),
+            Map.entry("КУРТКА",     "CASUAL"),
+            Map.entry("ПАЛЬТО",     "CLASSIC"),
+            Map.entry("СУКНЯ",      "EVENING"),
+            Map.entry("СПОРТ",      "SPORT")
+    );
+
+    // ── Алиасы для Color ──────────────────────────────────────────────
+    private static final Map<String, String> COLOR_ALIASES = Map.ofEntries(
+            Map.entry("KHAKI",      "OLIVE"),
+            Map.entry("CREAM",      "BEIGE"),
+            Map.entry("IVORY",      "BEIGE"),
+            Map.entry("DARK_BLUE",  "NAVY"),
+            Map.entry("DARK BLUE",  "NAVY"),
+            Map.entry("LIGHT_BLUE", "BLUE"),
+            // українські
+            Map.entry("ЗЕЛЕНИЙ",    "GREEN"),
+            Map.entry("ЗЕЛЕНА",     "GREEN"),
+            Map.entry("ЧОРНИЙ",     "BLACK"),
+            Map.entry("ЧОРНА",      "BLACK"),
+            Map.entry("БІЛИЙ",      "WHITE"),
+            Map.entry("БІЛА",       "WHITE"),
+            Map.entry("СИНІЙ",      "BLUE"),
+            Map.entry("СИНЯ",       "BLUE"),
+            Map.entry("ЧЕРВОНИЙ",   "RED"),
+            Map.entry("ЧЕРВОНА",    "RED"),
+            Map.entry("БЕЖЕВИЙ",    "BEIGE"),
+            Map.entry("СІРИЙ",      "GREY"),
+            Map.entry("РОЖЕВИЙ",    "PINK")
+    );
+
+    // ── Алиасы для Gender ─────────────────────────────────────────────
+    private static final Map<String, String> GENDER_ALIASES = Map.ofEntries(
+            Map.entry("MALE",       "MEN"),
+            Map.entry("FEMALE",     "WOMEN"),
+            Map.entry("WOMAN",      "WOMEN"),
+            Map.entry("MAN",        "MEN"),
+            // українські
+            Map.entry("ЧОЛОВІЧИЙ",  "MEN"),
+            Map.entry("ЧОЛОВІЧА",   "MEN"),
+            Map.entry("ЖІНОЧИЙ",    "WOMEN"),
+            Map.entry("ЖІНОЧА",     "WOMEN"),
+            Map.entry("УНІСЕКС",    "UNISEX")
+    );
+
+    // ── Алиасы для FitType ────────────────────────────────────────────
+    private static final Map<String, String> FIT_ALIASES = Map.ofEntries(
+            Map.entry("LOOSE",      "RELAXED"),
+            Map.entry("BAGGY",      "OVERSIZE"),
+            Map.entry("FITTED",     "SLIM"),
+            Map.entry("STRAIGHT",   "REGULAR"),
+            Map.entry("CROPPED",    "CROP"),
+            // українські
+            Map.entry("ВІЛЬНИЙ",    "RELAXED"),
+            Map.entry("ПРИТАЛЕНИЙ", "SLIM"),
+            Map.entry("ОВЕРСАЙЗ",   "OVERSIZE"),
+            Map.entry("ШИРОКИЙ",    "WIDE_LEG"),
+            Map.entry("ВКОРОЧЕНИЙ", "CROP")
+    );
+    private static final Map<String, String> MATERIAL_ALIASES = Map.of(
+            // українські
+            "ШКІРЯНА",   "LEATHER",
+            "ШКІРА",     "LEATHER",
+            "ШКІРНА",    "LEATHER",
+            "ВОВНЯНА",   "WOOL",
+            "ВОВНА",     "WOOL",
+            "БАВОВНА",   "COTTON",
+            "БАВОВНЯНА", "COTTON",
+            "ДЕНІМ",     "DENIM",
+            "ШОВК",      "SILK",
+            "ШОВКОВА",   "SILK"
+    );
+
+    // ── Safe enum parser з алиасами ───────────────────────────────────
     private <T extends Enum<T>> T parseEnum(Class<T> enumClass, String value) {
         if (value == null || value.isBlank()) return null;
+
+        String normalized = value.trim().toUpperCase();
+
+        if (enumClass == Category.class) {
+            normalized = CATEGORY_ALIASES.getOrDefault(normalized, normalized);
+        } else if (enumClass == Color.class) {
+            normalized = COLOR_ALIASES.getOrDefault(normalized, normalized);
+        } else if (enumClass == Material.class) {
+            normalized = MATERIAL_ALIASES.getOrDefault(normalized, normalized);
+        } else if (enumClass == Gender.class) {
+            normalized = GENDER_ALIASES.getOrDefault(normalized, normalized);
+        } else if (enumClass == FitType.class) {
+            normalized = FIT_ALIASES.getOrDefault(normalized, normalized);
+        }
+
         try {
-            return Enum.valueOf(enumClass, value.trim().toUpperCase());
+            return Enum.valueOf(enumClass, normalized);
         } catch (IllegalArgumentException e) {
             log.warn("Tool searchProducts: невідоме значення '{}' для {}, ігноруємо",
                     value, enumClass.getSimpleName());
