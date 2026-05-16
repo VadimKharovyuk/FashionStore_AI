@@ -1,8 +1,9 @@
-package com.example.fashionstore_ai.tools;
+package com.example.fashionstore_ai.tools.service;
 
 import com.example.fashionstore_ai.enums.AgentType;
 import com.example.fashionstore_ai.model.AgentRegistry;
 import com.example.fashionstore_ai.repository.AgentRegistryRepository;
+import com.example.fashionstore_ai.tools.OrchestratorAgent;
 import com.example.fashionstore_ai.tools.agent.RecommendationAgent;
 import com.example.fashionstore_ai.tools.agent.ShoppingAssistant;
 import com.example.fashionstore_ai.tools.agent.SizingAgent;

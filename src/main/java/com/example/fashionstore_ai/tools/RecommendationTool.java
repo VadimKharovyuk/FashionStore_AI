@@ -25,29 +25,35 @@ public class RecommendationTool extends BaseTool {
             description = """
                   Персональні рекомендації на основі переглянутих товарів.
                   Використовуй як відповідь на: "що порадиш?", "що мені підійде?",
-                  "покажи щось цікаве", "рекомендації для мене".
+                  "покажи щось цікаве", "рекомендації для мене",
+                  "що одягнути на вечірку/зустріч/захід".
                   Якщо немає history — повертає bestsellers.
                   ВАЖЛИВО: передавай точний sessionId з системного промпту.
+                  ВАЖЛИВО: якщо користувач вказує стать (чоловіча/жіноча вечірка, для чоловіка тощо) — передавай gender.
                   """)
     public String getPersonalizedRecommendations(
             @ToolParam(description = "ID сесії користувача — береться з системного промпту")
             String sessionId,
 
+            @ToolParam(description = "Стать: передавай MEN якщо запит явно чоловічий, WOMEN якщо жіночий. Якщо стать невідома або не вказана — не передавай цей параметр (залиш null)", required = false)
+            Gender gender,
+
             @ToolParam(description = "Кількість рекомендацій (за замовчуванням 5)", required = false)
             Integer limit
     ) {
         sessionId = normalizeSessionId(sessionId);
-        log.info("Tool getPersonalizedRecommendations: sessionId={}", sessionId);
+        log.info("Tool getPersonalizedRecommendations: sessionId={} gender={}", sessionId, gender);
 
         if (sessionId.isBlank()) {
             return "Помилка: sessionId порожній. Використовуй sessionId з системного промпту.";
         }
 
         int l = limit != null ? limit : 5;
-        List<ProductResponse> products = recommendationService.getPersonalized(sessionId, l);
+        List<ProductResponse> products = recommendationService.getPersonalized(sessionId, gender, l);
 
         if (products.isEmpty()) return "На жаль, рекомендацій поки немає. Переглянь каталог!";
-        return "🎯 Рекомендації для тебе:\n\n" + formatList(products);
+        return "🎯 Рекомендації:\n\n" + formatList(products) +
+                "\n\n⚠️ Використовуй ТІЛЬКИ ці товари. Не додавай інших.";
     }
 
     @Tool(name = "getSimilarProducts",
@@ -68,7 +74,8 @@ public class RecommendationTool extends BaseTool {
         try {
             List<ProductResponse> products = recommendationService.getSimilar(productId, l);
             if (products.isEmpty()) return "Схожих товарів не знайдено.";
-            return "👗 Схожі товари:\n\n" + formatList(products);
+            return "👗 Схожі товари:\n\n" + formatList(products) +
+                    "\n\n⚠️ Використовуй ТІЛЬКИ ці товари. Не додавай інших.";
         } catch (Exception e) {
             return "Товар з id=" + productId + " не знайдено.";
         }
@@ -79,7 +86,6 @@ public class RecommendationTool extends BaseTool {
                   Доповнюючі товари — що підходить до вже обраного.
                   Використовуй коли: користувач обрав товар і питає
                   "що до цього підійде?", "з чим носити?", "що ще взяти?".
-                  Передай список id товарів що вже в кошику або переглянуті.
                   """)
     public String getComplementaryProducts(
             @ToolParam(description = "Список ID товарів (через кому)")
@@ -98,7 +104,8 @@ public class RecommendationTool extends BaseTool {
                     .toList();
             List<ProductResponse> products = recommendationService.getComplementary(ids, l);
             if (products.isEmpty()) return "Доповнюючих товарів не знайдено.";
-            return "✨ Чудово доповнить твій вибір:\n\n" + formatList(products);
+            return "✨ Чудово доповнить твій вибір:\n\n" + formatList(products) +
+                    "\n\n⚠️ Використовуй ТІЛЬКИ ці товари. Не додавай інших.";
         } catch (Exception e) {
             return "Помилка при пошуку доповнюючих товарів: " + e.getMessage();
         }
@@ -109,7 +116,6 @@ public class RecommendationTool extends BaseTool {
                   Хіти продажів магазину.
                   Використовуй коли: "що популярне?", "хіти", "топ товарів",
                   "що зараз купують?", "найкращі позиції".
-                  Категорія і стать опціональні.
                   """)
     public String getBestsellers(
             @ToolParam(description = "Категорія (опціонально): CASUAL, SPORT, EVENING і т.д.", required = false)
@@ -125,14 +131,17 @@ public class RecommendationTool extends BaseTool {
         int l = limit != null ? limit : 5;
         List<ProductResponse> products = recommendationService.getBestsellers(category, gender, l);
         if (products.isEmpty()) return "Хітів продажів не знайдено за вказаними фільтрами.";
-        return "⭐ Хіти продажів:\n\n" + formatList(products);
+        return "⭐ Хіти продажів:\n\n" + formatList(products) +
+                "\n\n⚠️ Використовуй ТІЛЬКИ ці товари. Не додавай інших.";
     }
 
     @Tool(name = "getNewArrivals",
             description = """
                   Новинки магазину.
                   Використовуй коли: "що нового?", "нові надходження",
-                  "нова колекція", "що нещодавно з'явилось?".
+                  "нова колекція", "що нещодавно з'явилось?", "покажи новинки".
+                  Якщо користувач не вказав категорію — НЕ передавай category (залиш null).
+                  Якщо користувач не вказав стать — НЕ передавай gender (залиш null).
                   """)
     public String getNewArrivals(
             @ToolParam(description = "Категорія (опціонально)", required = false)
@@ -148,7 +157,8 @@ public class RecommendationTool extends BaseTool {
         int l = limit != null ? limit : 5;
         List<ProductResponse> products = recommendationService.getNewArrivals(category, gender, l);
         if (products.isEmpty()) return "Новинок за вказаними фільтрами не знайдено.";
-        return "🆕 Нові надходження:\n\n" + formatList(products);
+        return "🆕 Нові надходження:\n\n" + formatList(products) +
+                "\n\n⚠️ Використовуй ТІЛЬКИ ці товари. Не додавай інших.";
     }
 
     @Tool(name = "getViewHistory",
@@ -156,7 +166,6 @@ public class RecommendationTool extends BaseTool {
                   Нещодавно переглянуті товари користувача.
                   Використовуй коли: "що я переглядав?", "покажи переглянуте",
                   "поверни до того що я дивився".
-                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
                   """)
     public String getViewHistory(
             @ToolParam(description = "ID сесії користувача — береться з системного промпту")
@@ -175,19 +184,20 @@ public class RecommendationTool extends BaseTool {
         int l = limit != null ? limit : 5;
         List<ProductResponse> products = recommendationService.getViewHistory(sessionId, l);
         if (products.isEmpty()) return "Історія переглядів порожня.";
-        return "🕐 Нещодавно переглянуті:\n\n" + formatList(products);
+        return "🕐 Нещодавно переглянуті:\n\n" + formatList(products) +
+                "\n\n⚠️ Використовуй ТІЛЬКИ ці товари. Не додавай інших.";
     }
 
-    // ── Format helper — з посиланнями на товар ────────────────────
+    // ── Format helper — з посиланнями та gender ───────────────────
 
     private String formatList(List<ProductResponse> products) {
         return products.stream()
                 .map(p -> {
                     StringBuilder sb = new StringBuilder();
-                    // markdown посилання — JS renderMd перетворить на <a>
                     sb.append("[").append(p.name()).append("](/products/").append(p.id()).append(")")
                             .append(" | ").append(p.brand())
-                            .append(" | $").append(p.discountedPrice());
+                            .append(" | $").append(p.discountedPrice())
+                            .append(" | ").append(p.gender()); // явно показываем gender модели
                     if (p.discountPercent() != null && p.discountPercent() > 0) {
                         sb.append(" (-").append(p.discountPercent()).append("%)");
                     }

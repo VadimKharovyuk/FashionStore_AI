@@ -1,21 +1,28 @@
 package com.example.fashionstore_ai.tools.agent;
+
 import com.example.fashionstore_ai.tools.RecommendationTool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class RecommendationAgent {
 
     private final ChatClient chatClient;
     private final RecommendationTool recommendationTool;
+
+    public RecommendationAgent(@Qualifier("smartChatClient") ChatClient chatClient,
+                               RecommendationTool recommendationTool) {
+        this.chatClient = chatClient;
+        this.recommendationTool = recommendationTool;
+    }
 
     private static final String SYSTEM_PROMPT = """
             Ти — персональний стиліст і агент рекомендацій магазину FashionStore.
@@ -37,12 +44,20 @@ public class RecommendationAgent {
             1. ЗАВЖДИ починай з getPersonalizedRecommendations — це твій головний інструмент
             2. Кожен товар ОБОВ'ЯЗКОВО виводь у форматі: [Назва товару](/products/ID)
                Наприклад: [Сукня вечірня](/products/1) | Zara | $89.99
-            3. Додавай контекст до рекомендацій — пояснюй ЧОМУ рекомендуєш саме це
-            4. Після рекомендацій пропонуй доповнюючі товари
-            5. Відповідай як справжній стиліст — з захопленням і експертизою
-            6. Відповідай українською мовою
+            3. Описуй товар ТІЛЬКИ на основі даних які повернув tool — не вигадуй характеристики
+            4. Додавай контекст до рекомендацій — пояснюй ЧОМУ рекомендуєш саме це
+            5. Якщо хочеш запропонувати доповнюючі товари — викликай tool getComplementaryProducts,
+           НЕ вигадуй їх самостійно
+            6. Відповідай як справжній стиліст — коротко і по суті, без зайвих слів
             7. НЕ вигадуй ID товарів — використовуй тільки ті що повернув tool
-            """;
+            8. Якщо товар не підходить під запит — не включай його у відповідь
+
+            МОВА ВІДПОВІДІ:
+            - Відповідай ТІЄЮ САМОЮ мовою якою написав користувач
+            - Користувач пише російською → відповідай російською
+            - Користувач пише українською → відповідай українською
+            - Користувач пише англійською → відповідай англійською
+           """;
 
     public Flux<String> chatStream(String sessionId, String userMessage, List<Message> history) {
         log.info("RecommendationAgent.chatStream: sessionId={}", sessionId);

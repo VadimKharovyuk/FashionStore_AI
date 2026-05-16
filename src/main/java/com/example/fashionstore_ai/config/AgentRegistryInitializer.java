@@ -13,7 +13,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -30,26 +29,29 @@ public class AgentRegistryInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (agentRegistryRepository.count() > 0) {
+
+        if (agentRegistryRepository.count() >0){
             log.info("AgentRegistryInitializer: дані вже є, пропускаємо");
             return;
         }
-
-        log.info("AgentRegistryInitializer: реєструємо агентів...");
+        // завжди перезаписуємо — щоб triggerExamples і embeddings були актуальні
+        log.info("AgentRegistryInitializer: очищаємо і реєструємо агентів...");
+        agentRegistryRepository.deleteAll();
+        entityManager.flush();
 
         registerAgent(AgentRegistry.builder()
                 .agentType(AgentType.SHOPPING_ASSISTANT)
                 .displayName("Помічник з підбору одягу")
-                .description("Агент для пошуку товарів, підбору одягу та управління кошиком. " +
+                .description("Агент для пошуку товарів у каталозі за конкретними фільтрами. " +
                         "Допомагає знайти одяг за категорією, кольором, матеріалом, ціною та сезоном. " +
                         "Перевіряє наявність розмірів і додає товари в кошик.")
-                .competencies("пошук товарів, фільтрація каталогу, перевірка наявності, " +
+                .competencies("пошук товарів по фільтрах, каталог, фільтрація, перевірка наявності, " +
                         "додавання в кошик, видалення з кошика, перегляд кошика, " +
-                        "підбір за кольором матеріалом ціною категорією сезоном")
-                .triggerExamples("шукаю сукню, є чорні джинси, покажи спортивний одяг, " +
-                        "додай в кошик, що є в наявності, знайди до 50 доларів, " +
-                        "хочу купити, є розмір M, покажи кошик")
-                .notResponsibleFor("підбір розміру по параметрах тіла, замовлення доставка повернення")
+                        "підбір за кольором матеріалом ціною категорією сезоном брендом")
+                .triggerExamples("шукаю чорну сукню, є джинси розмір M, покажи спортивний одяг, " +
+                        "додай в кошик, знайди до 50 доларів, хочу купити блузку, " +
+                        "є розмір L, покажи кошик, фільтр по кольору, каталог суконь")
+                .notResponsibleFor("персональні рекомендації, підбір розміру по параметрах тіла, замовлення доставка повернення")
                 .beanName("shoppingAssistant")
                 .priority(1)
                 .isActive(true)
@@ -79,8 +81,7 @@ public class AgentRegistryInitializer implements ApplicationRunner {
                         "Відстежує статус замовлень, допомагає скасувати або змінити замовлення, " +
                         "оформлює повернення і обміни товарів.")
                 .competencies("статус замовлення, трекінг доставки, скасування замовлення, " +
-                        "зміна адреси доставки, повернення товару, обмін, політика повернень, " +
-                        "де посилка, номер замовлення ORD")
+                        "зміна адреси доставки, повернення товару, обмін, політика повернень")
                 .triggerExamples("де моє замовлення, хочу скасувати, не прийшла посилка, " +
                         "повернути товар, змінити адресу, трекінг номер, статус доставки, " +
                         "замовлення ORD-2026, повернення обмін")
@@ -93,16 +94,17 @@ public class AgentRegistryInitializer implements ApplicationRunner {
         registerAgent(AgentRegistry.builder()
                 .agentType(AgentType.RECOMMENDATION_AGENT)
                 .displayName("Персональний стиліст")
-                .description("Агент персональних рекомендацій на основі переглядів і вподобань. " +
-                        "Підбирає товари виходячи з історії переглядів, пропонує схожі товари " +
-                        "і доповнення до вже обраного. Показує хіти і новинки.")
-                .competencies("персональні рекомендації, схожі товари, доповнюючі товари, " +
-                        "хіти продажів, новинки, з чим носити, що порадиш, " +
-                        "підбір образу, стиль, історія переглядів")
-                .triggerExamples("що порадиш, покажи щось цікаве, що популярне, новинки, " +
-                        "що до цього підійде, схожі товари, персональні рекомендації, " +
-                        "підбери образ, що нового в магазині, хіти")
-                .notResponsibleFor("пошук по фільтрах, підбір розміру, замовлення")
+                .description("Агент персональних рекомендацій і підбору образів. " +
+                        "Підбирає що одягнути на конкретний захід або для певного стилю. " +
+                        "Пропонує персональні рекомендації, схожі і доповнюючі товари, хіти і новинки.")
+                .competencies("персональні рекомендації, підбір образу, що одягнути на захід, " +
+                        "схожі товари, доповнюючі товари, хіти продажів, новинки, " +
+                        "з чим носити, стиліст, вечірка офіс побачення весілля")
+                .triggerExamples("що порадиш, підбери мені щось, що одягнути на вечірку, " +
+                        "підбери образ для офісу, що популярне, новинки, що нового, " +
+                        "що до цього підійде, схожі товари, ищу что одеть, " +
+                        "хіти продажів, для чоловічої вечірки, на побачення, для ділової зустрічі")
+                .notResponsibleFor("пошук по конкретних фільтрах каталогу, підбір розміру, замовлення")
                 .beanName("recommendationAgent")
                 .priority(4)
                 .isActive(true)
@@ -112,7 +114,6 @@ public class AgentRegistryInitializer implements ApplicationRunner {
                 agentRegistryRepository.count());
     }
 
-
     private void registerAgent(AgentRegistry agent) {
         String textForEmbedding = agent.getDescription() + " " +
                 agent.getCompetencies() + " " +
@@ -120,15 +121,12 @@ public class AgentRegistryInitializer implements ApplicationRunner {
 
         float[] embedding = embeddingModel.embed(textForEmbedding);
 
-        // конвертуємо float[] у рядок формату [0.1,0.2,...] для pgvector
         String vectorStr = Arrays.stream(toDoubleArray(embedding))
                 .mapToObj(Double::toString)
                 .collect(Collectors.joining(",", "[", "]"));
 
-        // зберігаємо базові поля через JPA
         agentRegistryRepository.save(agent);
 
-        // оновлюємо embedding через нативний SQL з явним кастом до vector
         entityManager.createNativeQuery(
                         "UPDATE agent_registry SET embedding = CAST(:vec AS vector) WHERE agent_type = :type")
                 .setParameter("vec", vectorStr)

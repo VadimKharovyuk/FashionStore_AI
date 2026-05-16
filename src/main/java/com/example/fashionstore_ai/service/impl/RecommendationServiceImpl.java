@@ -28,44 +28,53 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     // ── getPersonalized ───────────────────────────────────────────
 
+
     @Override
     @Transactional(readOnly = true)
     public List<ProductResponse> getPersonalized(String sessionId, int limit) {
+        return getPersonalized(sessionId, null, limit); // делегируем
+    }
+
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getPersonalized(String sessionId, Gender gender, int limit) {
+        // UNISEX как фильтр не имеет смысла — показываем всё
+        Gender effectiveGender = (gender == Gender.UNISEX) ? null : gender;
         List<ViewHistory> history = viewHistoryRepository
                 .findTopBySessionId(sessionId, 10);
 
         if (history.isEmpty()) {
-            // якщо немає history — повертаємо bestsellers
             log.debug("RecommendationService: немає history для sessionId={}, повертаємо bestsellers", sessionId);
-            return getBestsellers(null, null, limit);
+            return getBestsellers(null, gender, limit);
         }
 
-        // збираємо теги і категорії з переглянутих товарів
-        Set<String> tags       = new LinkedHashSet<>();
+        Set<String> tags         = new LinkedHashSet<>();
         Set<Category> categories = new LinkedHashSet<>();
-        Set<Long> excludeIds   = new HashSet<>();
+        Set<Long> excludeIds     = new HashSet<>();
 
         history.forEach(vh -> {
             Product p = vh.getProduct();
             excludeIds.add(p.getId());
-            if (p.getTags() != null) tags.addAll(p.getTags());
+            if (p.getTags() != null)     tags.addAll(p.getTags());
             if (p.getCategory() != null) categories.add(p.getCategory());
         });
 
         List<ProductResponse> result = new ArrayList<>();
 
-        // 1. По тегах (найбільш персональні)
+        // 1. По тегах с фильтром gender
         if (!tags.isEmpty()) {
             List<ProductResponse> byTags = getByTags(new ArrayList<>(tags),
-                    new ArrayList<>(excludeIds));
+                    new ArrayList<>(excludeIds), gender);
             result.addAll(byTags);
         }
 
-        // 2. По категоріях якщо мало результатів
+        // 2. По категориях если мало результатов
         if (result.size() < limit && !categories.isEmpty()) {
             Category topCategory = categories.iterator().next();
             List<Product> byCat = productRepository
-                    .findByCategoryAndGenderAndIdNotIn(topCategory, null,
+                    .findByCategoryAndGenderAndIdNotIn(topCategory, gender,
                             new ArrayList<>(excludeIds));
             byCat.stream()
                     .limit(limit - result.size())
@@ -73,8 +82,13 @@ public class RecommendationServiceImpl implements RecommendationService {
                     .forEach(result::add);
         }
 
-        log.debug("RecommendationService.getPersonalized: sessionId={} results={}",
-                sessionId, result.size());
+        // 3. Fallback — bestsellers с фильтром gender
+        if (result.isEmpty()) {
+            return getBestsellers(null, gender, limit);
+        }
+
+        log.debug("RecommendationService.getPersonalized: sessionId={} gender={} results={}",
+                sessionId, gender, result.size());
 
         return result.stream().limit(limit).toList();
     }
@@ -142,14 +156,30 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     // ── getByTags ─────────────────────────────────────────────────
 
+
     @Override
     @Transactional(readOnly = true)
     public List<ProductResponse> getByTags(List<String> tags, List<Long> excludeIds) {
+        return getByTags(tags, excludeIds, null); // делегируем
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getByTags(List<String> tags, List<Long> excludeIds, Gender gender) {
         if (tags == null || tags.isEmpty()) return List.of();
         List<Long> exclude = (excludeIds == null || excludeIds.isEmpty())
                 ? List.of(-1L) : excludeIds;
-        return productMapper.toResponseList(
-                productRepository.findByTagsIn(tags, exclude));
+
+        List<Product> products = productRepository.findByTagsIn(tags, exclude);
+
+        // фильтруем по gender если указан (MEN/WOMEN), UNISEX всегда показываем
+        if (gender != null) {
+            products = products.stream()
+                    .filter(p -> p.getGender() == gender || p.getGender() == Gender.UNISEX)
+                    .toList();
+        }
+
+        return productMapper.toResponseList(products);
     }
 
     // ── getBestsellers ────────────────────────────────────────────
