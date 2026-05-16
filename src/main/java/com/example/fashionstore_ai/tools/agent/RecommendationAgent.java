@@ -1,5 +1,6 @@
 package com.example.fashionstore_ai.tools.agent;
 
+import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.tools.RecommendationTool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +63,8 @@ public class RecommendationAgent {
     public Flux<String> chatStream(String sessionId, String userMessage, List<Message> history) {
         log.info("RecommendationAgent.chatStream: sessionId={}", sessionId);
 
+        BaseTool.setCurrentSessionId(sessionId); // ✅ уже есть
+
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
                 "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах.";
@@ -73,11 +76,14 @@ public class RecommendationAgent {
                 .tools(recommendationTool)
                 .stream()
                 .content()
-                .doOnError(e -> log.error("RecommendationAgent error: sessionId={}", sessionId, e));
+                .doOnError(e -> log.error("RecommendationAgent error: sessionId={}", sessionId, e))
+                .doFinally(signal -> BaseTool.clearCurrentSessionId()); // ✅ уже есть
     }
 
     public String chat(String sessionId, String userMessage, List<Message> history) {
         log.info("RecommendationAgent.chat: sessionId={}", sessionId);
+
+        BaseTool.setCurrentSessionId(sessionId); // ← добавить
 
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
@@ -94,6 +100,8 @@ public class RecommendationAgent {
         } catch (Exception e) {
             log.error("RecommendationAgent error: sessionId={}", sessionId, e);
             return "Вибач, виникла помилка. Спробуй ще раз.";
+        } finally {
+            BaseTool.clearCurrentSessionId(); // ← добавить
         }
     }
 }

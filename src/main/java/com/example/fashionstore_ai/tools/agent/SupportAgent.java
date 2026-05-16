@@ -1,5 +1,6 @@
 package com.example.fashionstore_ai.tools.agent;
 
+import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.tools.OrderTool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,8 @@ public class SupportAgent {
     public Flux<String> chatStream(String sessionId, String userMessage, List<Message> history) {
         log.info("SupportAgent.chatStream: sessionId={}", sessionId);
 
+        BaseTool.setCurrentSessionId(sessionId); // ← добавить
+
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
                 "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах.";
@@ -57,11 +60,14 @@ public class SupportAgent {
                 .tools(orderTool)
                 .stream()
                 .content()
-                .doOnError(e -> log.error("SupportAgent stream error: sessionId={}", sessionId, e));
+                .doOnError(e -> log.error("SupportAgent stream error: sessionId={}", sessionId, e))
+                .doFinally(signal -> BaseTool.clearCurrentSessionId()); // ← добавить
     }
 
     public String chat(String sessionId, String userMessage, List<Message> history) {
         log.info("SupportAgent.chat: sessionId={}", sessionId);
+
+        BaseTool.setCurrentSessionId(sessionId);
 
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
@@ -78,6 +84,8 @@ public class SupportAgent {
         } catch (Exception e) {
             log.error("SupportAgent error: sessionId={}", sessionId, e);
             return "Вибач, виникла помилка. Спробуй ще раз або зв'яжись з підтримкою.";
+        } finally {
+            BaseTool.clearCurrentSessionId(); // виконається завжди
         }
     }
 }

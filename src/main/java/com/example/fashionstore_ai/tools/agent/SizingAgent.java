@@ -1,5 +1,6 @@
 package com.example.fashionstore_ai.tools.agent;
 
+import com.example.fashionstore_ai.config.BaseTool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -44,6 +45,8 @@ public class SizingAgent {
     public Flux<String> chatStream(String sessionId, String userMessage, List<Message> history) {
         log.info("SizingAgent.chatStream: sessionId={}", sessionId);
 
+        BaseTool.setCurrentSessionId(sessionId);
+
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
                 "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах: " + sessionId;
@@ -57,11 +60,14 @@ public class SizingAgent {
                 .tools(sizingTool)
                 .stream()
                 .content()
-                .doOnError(e -> log.error("SizingAgent stream error: sessionId={}", sessionId, e));
+                .doOnError(e -> log.error("SizingAgent stream error: sessionId={}", sessionId, e))
+                .doFinally(signal -> BaseTool.clearCurrentSessionId());
     }
 
     public String chat(String sessionId, String userMessage, List<Message> history) {
         log.info("SizingAgent.chat: sessionId={}", sessionId);
+
+        BaseTool.setCurrentSessionId(sessionId); // ← добавить
 
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
@@ -80,6 +86,8 @@ public class SizingAgent {
         } catch (Exception e) {
             log.error("SizingAgent error: sessionId={}", sessionId, e);
             return "Вибач, виникла помилка при підборі розміру. Спробуй ще раз.";
+        } finally {
+            BaseTool.clearCurrentSessionId(); // ← добавить
         }
     }
 }

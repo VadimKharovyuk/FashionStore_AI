@@ -49,26 +49,31 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProductResponse> search(Category category,
+    public List<ProductResponse> search(String name,
+                                        Category category,
                                         Gender gender,
                                         Season season,
                                         Color color,
                                         Material material,
                                         FitType fitType,
                                         BigDecimal maxPrice) {
-        log.debug("ProductService.search: category={} gender={} season={} color={} " +
-                        "material={} fitType={} maxPrice={}",
-                category, gender, season, color, material, fitType, maxPrice);
+
+        log.info("ProductService.search: name='{}' category={} gender={} season={} color={} material={} fitType={} maxPrice={}",
+                name, category, gender, season, color, material, fitType, maxPrice);
 
         List<Product> products = productRepository.findWithFilters(
-                category, gender, season, color, material, fitType, maxPrice);
+                name,
+                category != null ? category.name() : null,
+                gender != null ? gender.name() : null,
+                season != null ? season.name() : null,
+                color != null ? color.name() : null,
+                material != null ? material.name() : null,
+                fitType != null ? fitType.name() : null,
+                maxPrice);
 
-        if (products.isEmpty()) {
-            log.debug("ProductService.search: нічого не знайдено");
-            return Collections.emptyList();
-        }
+        log.info("ProductService.search: знайдено {} товарів для name='{}'", products.size(), name);
 
-        log.debug("ProductService.search: знайдено {} товарів", products.size());
+        if (products.isEmpty()) return Collections.emptyList();
         return productMapper.toResponseList(products);
     }
 

@@ -19,26 +19,31 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findBySku(String sku);
 
     // ── ShoppingAssistant: пошук з фільтрами (List — для агентів) ─
-    @Query("""
-            SELECT p FROM Product p
-            WHERE (:category IS NULL OR p.category = :category)
-              AND (:gender   IS NULL OR p.gender   = :gender)
-              AND (:season   IS NULL OR p.season   = :season
-                                    OR p.season    = com.example.fashionstore_ai.enums.Season.ALL_SEASON)
-              AND (:color    IS NULL OR p.color    = :color)
-              AND (:material IS NULL OR p.material = :material)
-              AND (:fitType  IS NULL OR p.fitType  = :fitType)
-              AND (:maxPrice IS NULL OR p.price    <= :maxPrice)
-            ORDER BY p.isBestseller DESC, p.createdAt DESC
-            """)
+    @Query(value = """
+    SELECT DISTINCT p.* FROM product p
+    WHERE (:name IS NULL OR
+           p.name ILIKE CONCAT('%', LEFT(SPLIT_PART(CAST(:name AS text), ' ', 1), GREATEST(LENGTH(SPLIT_PART(CAST(:name AS text), ' ', 1)) - 2, 3)), '%') OR
+           p.name ILIKE CONCAT('%', LEFT(SPLIT_PART(CAST(:name AS text), ' ', 2), GREATEST(LENGTH(SPLIT_PART(CAST(:name AS text), ' ', 2)) - 2, 3)), '%') OR
+           p.description ILIKE CONCAT('%', LEFT(SPLIT_PART(CAST(:name AS text), ' ', 1), GREATEST(LENGTH(SPLIT_PART(CAST(:name AS text), ' ', 1)) - 2, 3)), '%') OR
+           p.description ILIKE CONCAT('%', LEFT(SPLIT_PART(CAST(:name AS text), ' ', 2), GREATEST(LENGTH(SPLIT_PART(CAST(:name AS text), ' ', 2)) - 2, 3)), '%'))
+      AND (:category IS NULL OR p.category = :category)
+      AND (:gender IS NULL OR p.gender = :gender OR p.gender = 'UNISEX')
+      AND (:season IS NULL OR p.season = :season OR p.season = 'ALL_SEASON')
+      AND (:color IS NULL OR p.color = :color)
+      AND (:material IS NULL OR p.material = :material)
+      AND (:fit_type IS NULL OR p.fit_type = :fit_type)
+      AND (:max_price IS NULL OR p.price <= :max_price)
+    ORDER BY p.is_bestseller DESC, p.is_new DESC
+    """, nativeQuery = true)
     List<Product> findWithFilters(
-            @Param("category") Category category,
-            @Param("gender")   Gender gender,
-            @Param("season")   Season season,
-            @Param("color")    Color color,
-            @Param("material") Material material,
-            @Param("fitType")  FitType fitType,
-            @Param("maxPrice") BigDecimal maxPrice
+            @Param("name") String name,
+            @Param("category") String category,
+            @Param("gender") String gender,
+            @Param("season") String season,
+            @Param("color") String color,
+            @Param("material") String material,
+            @Param("fit_type") String fitType,
+            @Param("max_price") BigDecimal maxPrice
     );
 
     // ── Каталог: пошук з фільтрами + пагінація (Page — для UI) ───

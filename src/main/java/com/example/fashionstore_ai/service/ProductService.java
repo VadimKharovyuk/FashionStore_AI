@@ -15,13 +15,15 @@ public interface ProductService {
 
     // пошук з фільтрами — всі параметри опціональні (null = не фільтрувати)
     // використовується ShoppingAssistant через ProductSearchTool
-    List<ProductResponse> search(Category category,
+    List<ProductResponse> search(String name,
+                                 Category category,
                                  Gender gender,
                                  Season season,
                                  Color color,
                                  Material material,
                                  FitType fitType,
                                  BigDecimal maxPrice);
+
 
     // перевірити наявність конкретного розміру
     // повертає кількість на складі (0 = немає)

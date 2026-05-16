@@ -1,5 +1,6 @@
 package com.example.fashionstore_ai.tools.agent;
 
+import com.example.fashionstore_ai.config.BaseTool;
 import com.example.fashionstore_ai.tools.CartTool;
 import com.example.fashionstore_ai.tools.ProductSearchTool;
 import lombok.extern.slf4j.Slf4j;
@@ -10,10 +11,11 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 @Slf4j
-public class ShoppingAssistant {
+public class ShoppingAssistant extends BaseTool {
 
     private final ChatClient chatClient;
     private final ProductSearchTool productSearchTool;
@@ -26,13 +28,13 @@ public class ShoppingAssistant {
         this.productSearchTool = productSearchTool;
         this.cartTool = cartTool;
     }
-
     private static final String SYSTEM_PROMPT = """
             Ти — AI-помічник інтернет-магазину одягу FashionStore.
             Твоя роль: допомагати знаходити одяг, підбирати речі та керувати кошиком.
 
             Що ти вмієш:
             - Шукати товари за категорією, кольором, матеріалом, ціною, сезоном
+            - Шукати товари за назвою ("джинсова куртка", "вечірня сукня", "светр з косами")
             - Показувати деталі товарів (склад тканини, догляд, розміри)
             - Перевіряти наявність розмірів на складі
             - Додавати і видаляти товари з кошика
@@ -46,8 +48,8 @@ public class ShoppingAssistant {
             Правила роботи:
             1. ЗАВЖДИ викликай searchProducts перед будь-якою відповіддю про товари
             2. НІКОЛИ не відповідай про наявність товарів без виклику searchProducts
-            3. Перед додаванням в кошик ЗАВЖДИ перевіряй наявність через checkStock
-            4. Якщо tool повернув found=false — слідуй інструкції з tool response
+            3. Перед додаванням в кошик ЗАВЖДИ викликай checkStock, потім addToCart
+            4. НІКОЛИ не кажи що товар доданий в кошик без виклику addToCart
             5. При показі товарів ЗАВЖДИ використовуй формат: [Назва](/products/ID) | Бренд | $Ціна
             6. Якщо запитання не стосується пошуку товарів або кошика —
                поясни що передаєш питання відповідному спеціалісту
@@ -65,38 +67,31 @@ public class ShoppingAssistant {
             - Якщо tool повернув порожній результат — скажи що не знайдено
               і запитай чи змінити фільтр (колір, матеріал, категорію). Більше нічого не додавай.
             """;
-
     public Flux<String> chatStream(String sessionId, String userMessage, List<Message> history) {
-//        log.info("ShoppingAssistant.chatStream: sessionId={}", sessionId);
+        log.info("ShoppingAssistant.chatStream: sessionId={}", sessionId);
+
+        BaseTool.setCurrentSessionId(sessionId);
 
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
                 "\nВикористовуй ТІЛЬКИ цей sessionId у всіх tool викликах. Не вигадуй інший.";
 
-        StringBuilder tokenBuffer = new StringBuilder();
-
         return chatClient.prompt()
                 .system(systemWithSession)
                 .messages(history)
                 .user(userMessage)
+                .toolContext(Map.of("sessionId", sessionId))  // ← добавить
                 .tools(productSearchTool, cartTool)
                 .stream()
                 .content()
-                .flatMap(token -> {
-                    tokenBuffer.append(token);
-                    String current = tokenBuffer.toString();
-                    String normalized = current
-                            .replaceAll("([а-яА-ЯіІїЇєЄa-zA-Z0-9])([А-ЯІЇЄA-Z*#|])", "$1 $2")
-                            .replaceAll("([*|])([а-яА-ЯіІa-zA-Z0-9])", "$1 $2")
-                            .replaceAll("([а-яА-ЯіІa-zA-Z0-9])([*|])", "$1 $2");
-                    tokenBuffer.setLength(0);
-                    return Flux.just(normalized);
-                })
-                .doOnError(e -> log.error("ShoppingAssistant stream error: sessionId={}", sessionId, e));
+                .doOnError(e -> log.error("ShoppingAssistant stream error: sessionId={}", sessionId, e))
+                .doFinally(signal -> BaseTool.clearCurrentSessionId());
     }
 
     public String chat(String sessionId, String userMessage, List<Message> history) {
         log.info("ShoppingAssistant.chat: sessionId={} message='{}'", sessionId, userMessage);
+
+        BaseTool.setCurrentSessionId(sessionId);
 
         String systemWithSession = SYSTEM_PROMPT +
                 "\n\nПОТОЧНА СЕСІЯ КОРИСТУВАЧА: " + sessionId +
@@ -107,15 +102,19 @@ public class ShoppingAssistant {
                     .system(systemWithSession)
                     .messages(history)
                     .user(userMessage)
+                    .toolContext(Map.of("sessionId", sessionId))  // ← добавить
                     .tools(productSearchTool, cartTool)
                     .call()
                     .content();
         } catch (Exception e) {
             log.error("ShoppingAssistant error: sessionId={}", sessionId, e);
             return "Вибач, виникла помилка при обробці запиту. Спробуй ще раз.";
+        } finally {
+            BaseTool.clearCurrentSessionId();
         }
     }
 
+    // этот метод без изменений — делегирует выше
     public String chat(String sessionId, String userMessage) {
         return chat(sessionId, userMessage, List.of());
     }

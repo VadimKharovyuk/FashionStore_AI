@@ -5,6 +5,7 @@ import com.example.fashionstore_ai.enums.Size;
 import com.example.fashionstore_ai.service.CartService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -37,15 +38,14 @@ public class CartTool extends BaseTool {
 
     @Tool(name = "addToCart",
             description = """
-                  Додати товар у кошик користувача.
-                  Використовуй коли: користувач хоче купити товар,
-                  каже "додай", "хочу це", "беру це".
-                  Завжди перевіряй наявність розміру через checkStock перед додаванням.
-                  ВАЖЛИВО: передавай точний sessionId з системного промпту.
-                  """)
+              Додати товар у кошик користувача.
+              Використовуй коли: користувач хоче купити товар,
+              каже "додай", "хочу це", "беру це", "додати у кошик".
+              ОБОВ'ЯЗКОВО викликай цей tool — без виклику товар НЕ буде доданий.
+              Товар вважається доданим ТІЛЬКИ після успішного виклику цього tool.
+              """)
     public String addToCart(
-            @ToolParam(description = "ID сесії користувача — береться з системного промпту")
-            String sessionId,
+            ToolContext toolContext,
 
             @ToolParam(description = "ID товару")
             Long productId,
@@ -56,10 +56,12 @@ public class CartTool extends BaseTool {
             @ToolParam(description = "Кількість (зазвичай 1)")
             int quantity
     ) {
-        sessionId = normalizeSessionId(sessionId);
+        String sessionId = (String) toolContext.getContext().get("sessionId");
         log.info("Tool addToCart: sessionId={} productId={} size={} qty={}",
                 sessionId, productId, size, quantity);
-        if (sessionId.isBlank()) return "Помилка: sessionId порожній.";
+
+        if (sessionId == null || sessionId.isBlank())
+            return "Помилка: sessionId порожній.";
 
         try {
             CartResponse cart = cartService.addToCart(sessionId, productId, size, quantity);

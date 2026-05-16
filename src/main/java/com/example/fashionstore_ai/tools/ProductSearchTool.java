@@ -24,20 +24,25 @@ public class ProductSearchTool extends BaseTool {
     private static final int MAX_SEARCH_RETRIES = 2;
 
 
+
     @Tool(name = "searchProducts",
             description = """
                   Пошук товарів у магазині за фільтрами. Всі параметри опціональні.
                   Використовуй коли: користувач шукає одяг, питає що є в наявності,
                   хоче знайти товар за категорією, кольором, ціною або іншими характеристиками.
-                  Повертає JSON з полем "found": true/false.
 
-                  СТРАТЕГІЯ ПРИ ПОРОЖНЬОМУ РЕЗУЛЬТАТІ (found=false):
+                  ВАЖЛИВО: якщо користувач називає конкретний товар ("джинсова куртка",
+                  "вечірня сукня", "светр з косами") — передавай назву у параметр name.
+                  name має пріоритет над category і fitType.
+
+                  СТРАТЕГІЯ ПРИ ПОРОЖНЬОМУ РЕЗУЛЬТАТІ:
                   - Спроба 1: прибери найбільш специфічний фільтр (color або material)
-                  - Спроба 2: прибери ще один фільтр (залиш тільки category або gender)
-                  - Після 2 спроб: повідом що нічого не знайдено, запитай чи змінити пошук
+                  - Спроба 2: залиш тільки name або category
+                  - Після 2 спроб: повідом що нічого не знайдено
                   - НІКОЛИ не вигадуй товари яких немає у відповіді
 
                   Category: CASUAL, SPORT, CLASSIC, EVENING, BUSINESS, BEACH, PARTY, STREETWEAR, LOUNGEWEAR
+                  Маппінг: куртки/пальто → CLASSIC або CASUAL
                   Gender: WOMEN, MEN, UNISEX
                   Color: BLACK, WHITE, RED, BLUE, GREEN, BEIGE, PINK, BROWN, GREY, YELLOW, ORANGE, PURPLE, NAVY, OLIVE, MULTICOLOR, PRINT
                   Material: COTTON, POLYESTER, WOOL, SILK, LINEN, DENIM, LEATHER, VISCOSE, CASHMERE, SYNTHETIC_MIX
@@ -45,6 +50,9 @@ public class ProductSearchTool extends BaseTool {
                   Якщо не впевнений у значенні — залиш параметр null!
                   """)
     public String searchProducts(
+            @ToolParam(description = "Частина назви товару мовою бази даних (українська): 'джинсова куртка', 'вечірня сукня', 'светр'. null якщо не вказано", required = false)
+            String name,
+
             @ToolParam(description = "Категорія: CASUAL, SPORT і т.д. null якщо не вказано", required = false)
             String category,
 
@@ -71,10 +79,14 @@ public class ProductSearchTool extends BaseTool {
     ) {
         int currentAttempt = (attempt != null) ? attempt : 1;
 
-        log.info("Tool searchProducts [attempt={}/{}]: category={} gender={} color={} material={} fitType={} maxPrice={}",
-                currentAttempt, MAX_SEARCH_RETRIES, category, gender, color, material, fitType, maxPrice);
+        // нормалізуємо name — беремо перші значущі слова без закінчень
+        String normalizedName = normalizeName(name);
+
+        log.info("Tool searchProducts [attempt={}/{}]: name={} (normalized={}) category={} gender={} color={} material={} fitType={} maxPrice={}",
+                currentAttempt, MAX_SEARCH_RETRIES, name, normalizedName, category, gender, color, material, fitType, maxPrice);
 
         List<ProductResponse> products = productService.search(
+                normalizedName,
                 parseEnum(Category.class, category),
                 parseEnum(Gender.class, gender),
                 parseEnum(Season.class, season),
@@ -96,6 +108,11 @@ public class ProductSearchTool extends BaseTool {
         }
 
         return "ЗНАЙДЕНО " + products.size() + " товарів:\n\n" + formatProductList(products);
+    }
+
+    private String normalizeName(String name) {
+        if (name == null || name.isBlank()) return null;
+        return name.trim().toLowerCase();
     }
 
     @Tool(name = "getProductDetails",
