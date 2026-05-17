@@ -46,17 +46,14 @@ public abstract class BaseTool {
                 .replace(">", "")
                 .trim();
 
-        // не валидный UUID — берём реальный
         if (!UUID_PATTERN.matcher(normalized).matches()) {
-            log.warn("BaseTool: невалідний sessionId '{}' — використовуємо реальний '{}'",
-                    sessionId, real);
+            log.warn("BaseTool: невалідний sessionId '{}' → підміняємо на '{}'", sessionId, real);
             return real != null ? real : "";
         }
 
-        // валидный UUID но не совпадает с реальным — подменяем
+        // ← завжди підміняємо якщо не співпадає з реальним
         if (real != null && !normalized.equals(real)) {
-            log.warn("BaseTool: модель передала чужий sessionId '{}' — підміняємо на '{}'",
-                    normalized, real);
+            log.warn("BaseTool: модель передала '{}' → підміняємо на реальний '{}'", normalized, real);
             return real;
         }
 

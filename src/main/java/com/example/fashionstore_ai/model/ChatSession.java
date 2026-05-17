@@ -3,10 +3,13 @@ package com.example.fashionstore_ai.model;
 import com.example.fashionstore_ai.enums.AgentType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "chat_session", indexes = {
@@ -39,6 +42,12 @@ public class ChatSession {
     @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 
+    // ── Critical Facts ─────────────────────────────────────────────
+// Структуровані факти що не дрейфують на відміну від summary
+    @Column(name = "critical_facts", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> criticalFacts;
+
     @Column(name = "summary_updated_at")
     private LocalDateTime summaryUpdatedAt;
 
@@ -46,6 +55,7 @@ public class ChatSession {
     // потрібно щоб знати з якого індексу починати sliding window
     @Column(name = "summarized_messages_count")
     private Integer summarizedMessagesCount = 0;
+
 
     // ── Повідомлення ──────────────────────────────────────────────
     @OneToMany(mappedBy = "chatSession",
