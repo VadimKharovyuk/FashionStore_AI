@@ -5,18 +5,26 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class SizingAgent {
 
     private final ChatClient chatClient;
     private final SizingTool sizingTool;
+
+
+    public SizingAgent(@Qualifier("smartChatClient") ChatClient chatClient,
+                       SizingTool sizingTool) {
+        this.chatClient = chatClient;
+        this.sizingTool = sizingTool;
+    }
+
 
     private static final String SYSTEM_PROMPT = """
             Ти — AI-помічник з підбору розмірів одягу в магазині FashionStore.

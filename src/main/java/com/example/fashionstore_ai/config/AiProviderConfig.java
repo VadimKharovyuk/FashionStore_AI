@@ -23,14 +23,21 @@ public class AiProviderConfig {
             return ollamaEmbeddingModel;
         }
 
-        // ⚡ Быстрая модель — для Orchestrator и простых задач
+        // ⚡ Быстрая модель — Orchestrator, простой роутинг
         @Bean
         @Primary
-        public ChatClient chatClient(OllamaChatModel ollamaChatModel) {
-            return ChatClient.builder(ollamaChatModel).build();
+        public ChatClient chatClient(OllamaApi ollamaApi) {
+            OllamaChatModel fastModel = OllamaChatModel.builder()
+                    .ollamaApi(ollamaApi)
+                    .defaultOptions(OllamaChatOptions.builder()
+                            .model("llama3.2:3b")
+                            .temperature(0.1)
+                            .build())
+                    .build();
+            return ChatClient.builder(fastModel).build();
         }
 
-        // 🧠 Умная модель — для агентов где важны инструкции
+        // 🧠 Умная модель — RecommendationAgent, SizingAgent
         @Bean("smartChatClient")
         public ChatClient smartChatClient(OllamaApi ollamaApi) {
             OllamaChatModel smartModel = OllamaChatModel.builder()

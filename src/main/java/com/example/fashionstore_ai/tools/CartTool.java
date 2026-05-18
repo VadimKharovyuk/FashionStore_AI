@@ -20,10 +20,12 @@ public class CartTool extends BaseTool {
 
     @Tool(name = "getCart",
             description = """
-                  Отримати поточний вміст кошика користувача.
-                  Використовуй коли: користувач питає що в кошику,
-                  хоче знати загальну суму, кількість товарів.
-                  """)
+          ОБОВ'ЯЗКОВО виклич цей інструмент коли користувач:
+          - питає що є в кошику
+          - хоче дізнатися суму замовлення
+          - питає кількість товарів у кошику
+          НЕ відповідай текстом — завжди викликай цей інструмент.
+          """)
     public String getCart(ToolContext toolContext) {
         String sessionId = (String) toolContext.getContext().get("sessionId");
         log.info("Tool getCart: sessionId={}", sessionId);
@@ -32,6 +34,8 @@ public class CartTool extends BaseTool {
         CartResponse cart = cartService.getCart(sessionId);
         return formatCart(cart);
     }
+
+
 
     @Tool(name = "addToCart",
             description = """

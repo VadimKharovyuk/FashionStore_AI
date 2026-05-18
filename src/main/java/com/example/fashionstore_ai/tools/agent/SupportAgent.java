@@ -6,18 +6,25 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class SupportAgent {
 
     private final ChatClient chatClient;
     private final OrderTool orderTool;
+
+
+    public SupportAgent(@Qualifier("smartChatClient") ChatClient chatClient,
+                        OrderTool orderTool) {
+        this.chatClient = chatClient;
+        this.orderTool = orderTool;
+    }
 
     private static final String SYSTEM_PROMPT = """
             Ти — агент підтримки інтернет-магазину FashionStore.
